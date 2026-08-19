@@ -1,0 +1,4 @@
+# pnpm 11 安全机制：只有显式列出的包才允许执行 install scripts
+# esbuild 是 Vite 的必需依赖（需要下载 platform-specific binary）
+allowBuilds:
+  esbuild: true

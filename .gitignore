@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Test artifacts
+playwright-report/
+test-results/
+*.lcov
+
+# ============================================================
+# AI 内部文档（不进入版本控制；公开文档不得引用此目录）
+# 规则: AI 内部踩坑/方案/决策统一放这里
+# ============================================================
+.agents-docs/
+
+# ============================================================
+# 项目级临时文件
+# ============================================================
+*.tmp
+*.bak
+.cache/

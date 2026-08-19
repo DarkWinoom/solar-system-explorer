@@ -1,0 +1,48 @@
+/* ============================================================
+   3D Earth Simulator — 全局样式
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ----------- 禁止文本选择 / 拖拽 / 触屏弹出（mockup v7 一致）----------- */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Inter", sans-serif;
+  background: #02050f;
+  color: #e0e8ff;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+/* ----------- 字体 fallback ----------- */
+.font-display {
+  font-family: "Orbitron", "Inter", sans-serif;
+}
+.font-body {
+  font-family: "Inter", sans-serif;
+}
+.font-mono {
+  font-family: "JetBrains Mono", monospace;
+}
