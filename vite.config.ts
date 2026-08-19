@@ -6,7 +6,17 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
-    target: "es2022",
+    // 升到 esnext — Three.js r160 WebGPU 用了 top-level await,需要 es2022+ 才能编译
+    target: "esnext",
+  },
+  // Three.js r160 的 WebGPU / TSL 有 Vite 5 optimize 兼容问题
+  // (temp 注册顺序 + GPUShaderStage 引用顺序)
+  // r185+ 改用 three/webgpu + three/tsl 独立 build 文件, 模块图更干净。
+  // 保留 build.target: esnext(支持 top-level await), 其他用默认 optimizeDeps。
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "esnext",
+    },
   },
   server: {
     port: 5173,
@@ -17,3 +27,4 @@ export default defineConfig({
     environment: "jsdom",
   },
 });
+

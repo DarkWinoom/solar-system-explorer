@@ -1,36 +1,49 @@
+import { EarthScene } from "./scene/EarthScene";
+
 /**
- * 应用初始化（阶段 1 占位）
- * 后续阶段会注入 Three.js 场景、UI、i18n、位置识别等模块
+ * 应用初始化入口
+ *
+ * 阶段 2：创建 EarthScene 跑通 render loop（黑屏 + 旋转立方体验证）
+ * 后续阶段：在此接入星空 / 地球 / 大气层 / OrbitControls / UI / i18n / 位置识别
  */
 
+let scene: EarthScene | null = null;
+
 export function initApp(): void {
-  // 阶段 1: 仅基础 DOM + console 验证脚手架是否跑通
   const root = document.getElementById("app");
   if (!root) {
     console.error("[3d-earth] #app root element not found");
     return;
   }
 
-  // 临时占位 — 阶段 2 替换为 Three.js canvas
-  root.innerHTML = `
-    <div style="
-      position: fixed; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      color: #00d4ff;
-      font-family: 'Orbitron', sans-serif;
-      font-size: 24px; letter-spacing: 0.2em;
-      background: radial-gradient(ellipse at center, #050a1a 0%, #02050f 100%);
-    ">
-      🌍 3D Earth Simulator
-      <span style="color:#7080a0; font-size:14px; margin-left:12px;">
-        stage 1 — scaffold ready
-      </span>
-    </div>
-  `;
-
   // 禁止文本选择（CSS 已设置，JS 兜底）
   document.addEventListener("selectstart", (e) => e.preventDefault());
   document.addEventListener("dragstart", (e) => e.preventDefault());
 
-  console.log("[3d-earth] app initialized (stage 1: scaffold)");
+  // 创建 Three.js 场景
+  scene = new EarthScene({
+    container: root,
+    backgroundColor: 0x02050f,
+  });
+
+  // 标签页隐藏时暂停渲染，节省资源
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      // Three.js 默认会跟着 raf 暂停（标签页隐藏时 raf 也会降频）
+      // 这里只做日志，调试用
+      console.log("[3d-earth] tab hidden — render loop throttled by browser");
+    } else {
+      console.log("[3d-earth] tab visible — render loop resumed");
+    }
+  });
+
+  // Hot reload 友好：HMR 时主动 dispose
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      scene?.dispose();
+      scene = null;
+    });
+  }
+
+  console.log("[3d-earth] app initialized (stage 2: Three.js scene + test cube)");
 }
