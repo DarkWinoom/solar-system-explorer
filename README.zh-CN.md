@@ -1,19 +1,35 @@
 # 3D 地球模拟器
 
-> 实时 3D 地球，支持昼夜交替、自动定位视角、程序生成环境音 — 纯前端，零后端。
+> 实时 3D 地球，支持昼夜交替、自动定位视角 — 纯前端，零后端。
 
-![status](https://img.shields.io/badge/status-v0.1%20开发中-orange)
+![status](https://img.shields.io/badge/status-v1.0-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![tech](https://img.shields.io/badge/Three.js-r160-000000?logo=three.js)
+![tech](https://img.shields.io/badge/Three.js-r185-000000?logo=three.js)
 ![no-backend](https://img.shields.io/badge/backend-无-brightgreen)
+
+[在线预览](https://3d-earth-simulator.netlify.app/)
 
 [English](./README.md) | 中文
 
 ## 简介
 
-3D 地球模拟器是一个单页 Web 应用，在你的浏览器里渲染一个实时 3D 地球。使用 Three.js 绘制带纹理的地球球体，根据当前 UTC 时间计算太阳位置来绘制精确的晨昏线，并自动旋转到访客所在位置。环境音完全程序生成 — 零音频文件，零授权问题。
+3D 地球模拟器是一个单页 Web 应用，在你的浏览器里渲染一个实时 3D 地球。使用 Three.js 绘制带纹理的地球球体，根据当前 UTC 时间计算太阳位置来绘制精确的晨昏线，并自动旋转到访客所在位置。
 
 整个体验完全自包含：无后端、无 API Key（首次定位除外，使用公共 IP 地理 API）、运行时无需构建服务器。
+
+## 截图
+
+初始视角会自动定位到访客所在位置，相机居中。
+
+晨昏线由当前 UTC 太阳位置实时计算。
+
+![3D 地球模拟器 — 中文 UI，自动定位到 Asia/Shanghai](./docs/screenshots/zh-CN.png)
+
+页面启动时地球以 600× 真实速度高速旋转（让人一眼看到它在动）。
+
+定位完成后，3 秒内把相机 tween 到访客位置，同时把转速平滑减速到 1×。
+
+拖拽可手动旋转，操作后"回到默认视角"按钮淡出。
 
 ## 特性
 
@@ -23,8 +39,8 @@
 - **拖拽 + 缩放** — `OrbitControls` 直观交互
 - **回到当前位置按钮** — 手动旋转地球后出现，点击后飞回初始视角
 - **夜面城市灯光** — NASA Black Marble 真实城市灯光纹理
-- **程序生成环境音** — A 小调和弦进行 + 滤波扫描，纯 Web Audio API（无音频文件依赖）
 - **多语言 UI** — 开箱即用 zh-CN / en-US，通过 `window.appI18n.registerLocale()` 支持自定义语言包
+- **本地自托管字体** — Orbitron / Inter / JetBrains Mono 以 woff2 形式本地提供，零 Google Fonts CDN 依赖
 - **响应式布局** — 兼容移动端 + 桌面，使用 TailwindCSS
 - **纯前端** — 单 Vite + TypeScript 代码库，可零配置部署到 GitHub Pages / Vercel / Netlify
 
@@ -36,7 +52,6 @@
 | 构建 | [Vite](https://vitejs.dev/) 5 + TypeScript 5 |
 | 样式 | [TailwindCSS](https://tailwindcss.com/) 3 |
 | 交互 | `three/examples/jsm/controls/OrbitControls` |
-| 音频 | Web Audio API（程序生成） |
 | 定位 | `ipapi.co` / `ipwho.is`（CORS 友好，无需 key） |
 | 测试 | [Vitest](https://vitest.dev/) |
 
@@ -75,7 +90,6 @@ pnpm test
 │   ├── geo/                # 地理位置逻辑
 │   ├── i18n/               # 多语言系统
 │   ├── ui/                 # UI 组件（顶栏、信息卡等）
-│   ├── audio/              # AmbientMusic 类
 │   ├── utils/              # 太阳 / 时间工具
 │   ├── styles/             # TailwindCSS + 全局样式
 │   └── types/              # TypeScript 类型声明
@@ -113,10 +127,6 @@ window.appI18n.registerLocale('ja-JP', {
 window.appI18n.setLocale('ja-JP');
 ```
 
-### 关闭自动播放提示
-
-页面首次加载时，浏览器可能阻止自动播放，会弹出小卡片请求权限。点击"开启"开始播放环境音。后续访问会记住选择（通过 `localStorage`）。
-
 ## License
 
 [MIT](./LICENSE) — 个人和商业用途免费。
@@ -128,7 +138,3 @@ window.appI18n.setLocale('ja-JP');
 - [Google Fonts](https://fonts.google.com/) — Orbitron、Inter、JetBrains Mono（OFL 协议）
 
 完整的第三方 License 列表见 [NOTICES.md](./NOTICES.md)。
-
----
-
-[//]: # (TODO: 截图待 v1.0 视觉实现完成后补充)

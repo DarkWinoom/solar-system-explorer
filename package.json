@@ -1,7 +1,7 @@
 {
   "name": "3d-earth-simulator",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "A 3D Earth simulator with day/night cycle, auto-located visitor position, and procedural ambient music",
   "scripts": {
