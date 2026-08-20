@@ -70,8 +70,11 @@ export class EarthScene {
    * 实际类型 OrbitControls 在 @types/three/examples/jsm/controls/OrbitControls.d.ts,
    * 但 module "three/addons/*" 的 wildcard ambient 会让它退化为 any。
    * 运行时由 examples/jsm/controls/OrbitControls.js 提供。
+   *
+   * 暴露 public 让 UIRoot 等 caller 能监听 'start' 事件(阶段 9 recenter 按钮)
+   * dispose 时会重新赋 null,所以不能 readonly
    */
-  private controls: any = null;
+  controls: any = null;
   private disposed: boolean = false;
 
   constructor(options: EarthSceneOptions) {
