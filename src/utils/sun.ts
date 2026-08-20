@@ -60,12 +60,14 @@ export function solarSubsolarLongitude(date: Date): number {
 /**
  * 计算太阳归一化方向向量（3D）
  *
- * 坐标系约定（与 Three.js 地球 mesh 一致）：
+ * 坐标系约定（与 latLonToCartesian 一致,见 src/geo/coords.ts）:
  *   - x = 朝向 0° 经度方向（z+ 经度 0 视为原方向，由 sphere geometry 决定）
- *   - y = 朝向北极（地球自转轴）
+ *   - y = 朝向北（地球自转轴）
  *   - z = 朝向东
+ *   - **lon + 180° 偏移**:让"地理 lon"对齐到 Three.js SphereGeometry 渲染位置
+ *     (NASA 纹理原点在 180°W,不在 0°。球面 local 0° 渲染到纹理 180°W)
  *
- * 阶段 6 用法：vertex shader 拿到这个 sunDir 后，
+ * 阶段 6 用法:vertex shader 拿到这个 sunDir 后,
  *   dot(normalize(vNormal), sunDir) 决定昼夜。
  *
  * @param date UTC 时间
@@ -80,12 +82,12 @@ export function sunDirection(
   const lonDeg = solarSubsolarLongitude(date);
 
   const decl = declDeg * DEG;
-  const lon = lonDeg * DEG;
+  // + 180° 偏移:对齐 Three.js SphereGeometry 球面 local 坐标系
+  // (跟 latLonToCartesian 公式保持一致,否则昼面/夜面会跟地图错位 180°)
+  const lon = (lonDeg + 180) * DEG;
 
   // 球坐标 → 笛卡尔
   // 太阳方向 = 地球表面"太阳直射点"的法向（外指）
-  // ⚠️ 2026-08-20 修正:x 用 -cos(lon) 匹配 Three.js SphereGeometry 渲染
-  // (原 +cos 公式导致晨昏线镜像翻转,见 src/geo/coords.ts 注释)
   const x = -Math.cos(decl) * Math.cos(lon);
   const y = Math.sin(decl);
   const z = Math.cos(decl) * Math.sin(lon);

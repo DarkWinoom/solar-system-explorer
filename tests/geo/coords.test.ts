@@ -17,11 +17,13 @@ import * as THREE from "three";
  */
 describe("coords", () => {
   describe("latLonToCartesian", () => {
-    // 2026-08-20 修正:Three.js SphereGeometry 实际公式 vertex.x = -ringRadius * cos(phi)
-    // (即 lat=0,lon=0 渲染在 -x 方向,不是 +x)。latLonToCartesian 必须匹配这个公式
-    it("equator (0, 0) maps to (-1, 0, 0) — Three.js sphere convention", () => {
+    // 2026-08-20 二次修正:加 180° lon 偏移对齐 NASA 纹理原点
+    // (球面 local lon=0 渲染到 NASA 纹理 u=0 = 180°W dateline,
+    //  所以"地理 lon=0"(本初)需对应"球面 local lon=180°"位置)
+    it("equator (0, 0) — geographic 0° maps to sphere local 180° = (1, 0, 0)", () => {
+      // 地理 0°(本初)→ 球面 local 180° → x = -cos(0)·cos(180°) = +1
       const v = latLonToCartesian(0, 0);
-      expect(v.x).toBeCloseTo(-1, 5);
+      expect(v.x).toBeCloseTo(1, 5);
       expect(v.y).toBeCloseTo(0, 5);
       expect(v.z).toBeCloseTo(0, 5);
     });
@@ -33,18 +35,28 @@ describe("coords", () => {
       expect(v.z).toBeCloseTo(0, 5);
     });
 
-    it("east 90° (0, 90) maps to (0, 0, 1)", () => {
+    it("east 90° (0, 90) maps to (0, 0, -1) — opposite of dateline alignment", () => {
+      // 地理 90°E → 球面 local 270° → x = -cos(0)·cos(270°) = 0, z = cos(0)·sin(270°) = -1
       const v = latLonToCartesian(0, 90);
+      expect(v.x).toBeCloseTo(0, 5);
+      expect(v.y).toBeCloseTo(0, 5);
+      expect(v.z).toBeCloseTo(-1, 5);
+    });
+
+    it("west 90° (0, -90) maps to (0, 0, 1)", () => {
+      // 地理 90°W → 球面 local 90° → x = -cos(0)·cos(90°) = 0, z = cos(0)·sin(90°) = +1
+      const v = latLonToCartesian(0, -90);
       expect(v.x).toBeCloseTo(0, 5);
       expect(v.y).toBeCloseTo(0, 5);
       expect(v.z).toBeCloseTo(1, 5);
     });
 
-    it("west 90° (0, -90) maps to (0, 0, -1)", () => {
-      const v = latLonToCartesian(0, -90);
-      expect(v.x).toBeCloseTo(0, 5);
+    it("dateline (0, 180) maps to (-1, 0, 0) — geographic 180° = sphere local 0°", () => {
+      // 地理 180°(dateline)→ 球面 local 0° → x = -cos(0)·cos(0°) = -1
+      const v = latLonToCartesian(0, 180);
+      expect(v.x).toBeCloseTo(-1, 5);
       expect(v.y).toBeCloseTo(0, 5);
-      expect(v.z).toBeCloseTo(-1, 5);
+      expect(v.z).toBeCloseTo(0, 5);
     });
 
     it("south pole (-90, 0) maps to (0, -1, 0)", () => {
@@ -54,10 +66,10 @@ describe("coords", () => {
       expect(v.z).toBeCloseTo(0, 5);
     });
 
-    it("Beijing (39.9, 116.4) maps to (-cos39.9·cos116.4, sin39.9, cos39.9·sin116.4)", () => {
+    it("Beijing (39.9, 116.4) — geographic formula + 180° offset", () => {
       const v = latLonToCartesian(39.9, 116.4);
       const latRad = (39.9 * Math.PI) / 180;
-      const lonRad = (116.4 * Math.PI) / 180;
+      const lonRad = ((116.4 + 180) * Math.PI) / 180;
       expect(v.x).toBeCloseTo(-Math.cos(latRad) * Math.cos(lonRad), 5);
       expect(v.y).toBeCloseTo(Math.sin(latRad), 5);
       expect(v.z).toBeCloseTo(Math.cos(latRad) * Math.sin(lonRad), 5);
@@ -65,7 +77,6 @@ describe("coords", () => {
 
     it("Shanghai (31.2, 121.5) — verify for camera alignment", () => {
       const v = latLonToCartesian(31.2, 121.5);
-      // 关键:不能简单判断数值,要验证它在球面上是"上海"位置
       // 模长 = 1(单位球)
       const len = Math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2);
       expect(len).toBeCloseTo(1, 5);

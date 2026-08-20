@@ -11,6 +11,7 @@ import { latLonToCameraPosition } from "./geo/coords";
  * 阶段 8: Earth + Atmosphere + OrbitControls + i18n
  * 阶段 9: UI 集成(TopBar / InfoCard / HelpHint / RecenterButton)
  * 阶段 11: 位置识别 + 启动 60x 旋转 + locate 完成后 3s tween(地球减速 + 相机平滑对齐)
+ * 阶段 9+: Recenter 按钮 → tween 到时区所在位置(1.5s ease-out cubic,不是直接 snap)
  *
  * 协作纪律:
  *   - i18n 早期接入(buildLocale 在任何 DOM 文本前)
@@ -27,12 +28,12 @@ const CAMERA_DISTANCE = Math.sqrt(
     DEFAULT_CAMERA_POSITION[1] ** 2 +
     DEFAULT_CAMERA_POSITION[2] ** 2
 ); // ≈ 5.77
-/** 启动时地球高速旋转倍数 — 1°/秒 (肉眼明显;6 分钟转 1 圈 = 360x 真实) */
-const STARTUP_ROTATION_SPEED = 600;
 /** locate 完成后 tween 时长(同时用于地球减速 + 相机对齐) */
 const AUTO_RECENTER_DURATION_MS = 3000;
 /** locate 完成后,等用户几秒再触发 tween(给用户先看高速旋转) */
 const AUTO_RECENTER_DELAY_MS = 2000;
+/** 用户点 recenter 按钮时的 tween 时长(比 startup 短,用户主动操作不该太慢) */
+const USER_RECENTER_DURATION_MS = 1500;
 /** 用户是否已经拖动过地球(若已操作,locate 完成不重置相机) */
 let userInteracted = false;
 /** locate 结果(供 tween 用) */
@@ -41,16 +42,34 @@ let locatedResult: LocateResult | null = null;
 let activeCameraTween: number | null = null;
 
 /**
- * RecenterButton 触发的"回到默认视角" (4.5, 2, 3) — 阶段 9 行为(立即重置,无 tween)
+ * RecenterButton 触发的"回到时区所在位置"(不是固定 (4.5, 2, 3))
+ * 语义:用户拖动地球后,点 recenter 应该回到他自己所在区域的视角(同 startup 行为)
+ * 实现:tween 1.5s ease-out cubic,期间用户拖动会取消 tween
+ *
+ * Fallback:locate 失败(用户拒绝 IP + Intl 未知)时,直接 set 到 DEFAULT_CAMERA_POSITION
+ *   (无 tween,因为没目标位置可平滑过渡)
  */
 function recenterCameraToDefault(): void {
   if (!scene) return;
   cancelCameraTween();
-  scene.camera.position.set(...DEFAULT_CAMERA_POSITION);
-  scene.camera.lookAt(0, 0, 0);
-  if (scene.controls) {
-    scene.controls.target.set(0, 0, 0);
-    scene.controls.update();
+  if (locatedResult) {
+    const pos = latLonToCameraPosition(
+      locatedResult.lat,
+      locatedResult.lon,
+      CAMERA_DISTANCE
+    );
+    tweenCameraTo(pos, USER_RECENTER_DURATION_MS);
+    console.log(
+      `[3d-earth] recenter tweening to (${locatedResult.lat.toFixed(2)}, ${locatedResult.lon.toFixed(2)}) over ${USER_RECENTER_DURATION_MS}ms`
+    );
+  } else {
+    // locate 还没好/失败 → fallback 到固定默认视角
+    scene.camera.position.set(...DEFAULT_CAMERA_POSITION);
+    scene.camera.lookAt(0, 0, 0);
+    if (scene.controls) {
+      scene.controls.target.set(0, 0, 0);
+      scene.controls.update();
+    }
   }
 }
 
@@ -111,10 +130,16 @@ export function initApp(): void {
     backgroundColor: 0x02050f,
   });
 
-  // 启动时地球高速旋转(阶段 11) — 让人能"看到在动"
-  // locate 完成后 2s + 3s tween 减速回 1:1 真实
-  if (scene.earth) {
-    scene.earth.setRotationSpeedMultiplier(STARTUP_ROTATION_SPEED, 0); // 立即 60x
+  // 启动时让相机自动绕地球转(视觉效果"地球在动"),locate 完成后停
+  // 历史:之前用 earth.setRotationSpeedMultiplier() 改 mesh.rotation.y 模拟自转,
+  // 但 mesh rotation 跟 latLonToCameraPosition(lat, lon) 的"地理 lon"语义冲突 —
+  // mesh 转 120° 后,"球面 local (31, 121)" 实际渲染到地理 1°E(伦敦),用户视角的
+  // "上海" 实际是伦敦,导致太阳光斑/夜面全错位。
+  // 改用 OrbitControls.autoRotate:相机绕地球转,效果一样,但大陆固定,光照按 UTC 真实。
+  if (scene.controls) {
+    scene.controls.autoRotate = true;
+    scene.controls.autoRotateSpeed = 6; // OrbitControls 速度单位 = 0.5 * 2π / 60s = ~30°/s * 6 = 180°/s
+    // (3s 内转 ~540°,跟之前 setRotationSpeedMultiplier(600, 0) 视觉一致)
   }
 
   // UI 层(阶段 9)
@@ -147,18 +172,15 @@ export function initApp(): void {
 
       // 延迟 AUTO_RECENTER_DELAY_MS,给用户先看高速旋转
       setTimeout(() => {
+        // 停 OrbitControls autoRotate(无论下面是否对齐相机)
+        if (scene?.controls) {
+          scene.controls.autoRotate = false;
+        }
         if (userInteracted || !locatedResult) {
           // 用户已操作 OR locate 没结果 → 不自动对齐
-          // 但地球仍要减速回 1x(否则一直 60x 浪费)
-          if (scene?.earth) {
-            scene.earth.setRotationSpeedMultiplier(1, AUTO_RECENTER_DURATION_MS);
-          }
           return;
         }
-        // 没操作:启动 tween
-        if (scene?.earth) {
-          scene.earth.setRotationSpeedMultiplier(1, AUTO_RECENTER_DURATION_MS);
-        }
+        // 没操作:启动相机 tween 到定位位置
         const pos = latLonToCameraPosition(
           locatedResult.lat,
           locatedResult.lon,
@@ -166,7 +188,7 @@ export function initApp(): void {
         );
         tweenCameraTo(pos, AUTO_RECENTER_DURATION_MS);
         console.log(
-          `[3d-earth] tweening camera to located position (3s) + easing rotation 60x→1x`
+          `[3d-earth] tweening camera to located position (3s) + stopping autoRotate`
         );
       }, AUTO_RECENTER_DELAY_MS);
     })

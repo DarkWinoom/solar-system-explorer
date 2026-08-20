@@ -16,13 +16,6 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
-import { SpeedTween } from "./SpeedTween";
-
-/**
- * 1:1 现实自转角速度（rad / sec）
- * 24h 旋转 2π → ROTATION_SPEED = 2π / 86400 ≈ 7.27e-5
- */
-const ROTATION_SPEED = (2 * Math.PI) / 86400;
 
 export interface EarthOptions {
   /** 球体半径。默认 1.0 */
@@ -71,15 +64,23 @@ export class Earth {
   // 运行时由 build/three.module.js + examples/jsm/... 提供实际实现
   private readonly material: any;
   /**
-   * 虚拟累计时间(秒) — 1:1 真实时间按 rotationSpeedMultiplier 加权
-   * 不用外部 elapsed,因为乘数变化时 elapsed 不连续
+   * 1:1 现实自转角速度（rad / sec,保留供 get rotationDegrees / currentRotationSpeedMultiplier 兼容用）
+   * 24h 旋转 2π → ROTATION_SPEED = 2π / 86400 ≈ 7.27e-5
+   */
+  private static readonly ROTATION_SPEED = (2 * Math.PI) / 86400;
+  /**
+   * ⚠️ 2026-08-20 修复:sun position bug
+   *
+   * 历史:Earth mesh 之前用 `this.mesh.rotation.y += dt` 模拟"地球自转",但
+   * latLonToCameraPosition(lat, lon) 算的是**球面 local 3D 位置**,而 mesh
+   * 自转后球面 local (31, 121) 的 world 位置变成 (31, 121 - rotation) 地理
+   * 位置,导致"看上海时间 = 实际看伦敦附近",太阳光斑/夜面全错位。
+   *
+   * 修法:删 mesh.rotation.y 赋值,大陆固定。视觉"自转" = uSunDir 跟着 UTC
+   * 时间变(光照在动),更直观也更符合 latLonToCameraPosition 的"地理 lon"语义。
+   * startup 3s 高速旋转改用 OrbitControls.autoRotate(相机绕地球转,效果一样)。
    */
   private virtualElapsed: number = 0;
-  /**
-   * 速度倍数 tween(独立 class,可单测)
-   * 阶段 11 启动 60x → locate 完成 3s 减速回 1x
-   */
-  private speedTween: SpeedTween = new SpeedTween();
   /** TSL uniform vec3 — 太阳相对地球的方向（从地球指向太阳） */
   private readonly uSunDir;
 
@@ -187,45 +188,42 @@ export class Earth {
   }
 
   /**
-   * 每帧调用：自转(用 delta 而非 elapsed,因为速度倍数变化时 elapsed 不连续)
-   * @param _elapsed 累计秒数(r185 Timer.getElapsed,目前不用,保留为 API 兼容)
-   * @param delta 这一帧的 delta 秒数(r185 Timer.getDelta)
-   */
-  update(_elapsed: number, delta: number): void {
-    // 1. 推进 speedTween
-    this.speedTween.update();
-    const speed = this.speedTween.value;
-    // 2. 用 delta 累加 virtualElapsed(乘以当前 speed)
-    this.virtualElapsed += delta * speed;
-    // 3. 应用到 mesh
-    this.mesh.rotation.y = this.virtualElapsed * ROTATION_SPEED;
-  }
-
-  /**
-   * 设置旋转速度倍数(可带过渡)
-   * @param target 目标倍数(0=暂停, 1=1:1 真实, 60=60x)
-   * @param durationMs 过渡时长(毫秒);0 = 立即切换
+   * 每帧调用:大陆固定,光照在 uSunDir 里跟着 UTC 变(EarthScene.setSunDirection)。
+   * 历史:之前用 mesh.rotation.y 模拟"地球自转",但这跟 latLonToCameraPosition
+   * 的"地理 lon"语义冲突,导致太阳位置错位。详见 virtualElapsed 注释。
    *
-   * 阶段 11 用法:
-   *   - 启动: setRotationSpeedMultiplier(60, 0) — 立即 60x
-   *   - locate 完成: setRotationSpeedMultiplier(1, 3000) — 3s 减速回 1x
+   * @param elapsed 累计秒数(r185 Timer.getElapsed,目前仍用于 get rotationDegrees 兼容)
+   * @param _delta 这一帧的 delta 秒数(r185 Timer.getDelta,目前不用)
    */
-  setRotationSpeedMultiplier(target: number, durationMs: number = 0): void {
-    this.speedTween.set(target, durationMs);
+  update(elapsed: number, _delta: number): void {
+    this.virtualElapsed = elapsed;
+    // 不再改 mesh.rotation.y(大陆固定)
   }
 
   /**
-   * 当前自转角(度, 0-360)
+   * 兼容旧 API,实际"地球自转"改用光照(uSunDir)跟 UTC 时间变。
+   * 大陆固定后不需要 mesh rotation,这个方法保留为 no-op 兼容历史调用。
+   *
+   * @param _target 目标倍数(0=暂停, 1=1:1 真实, 60=60x)— 忽略
+   * @param _durationMs 过渡时长(毫秒);0 = 立即切换 — 忽略
+   */
+  setRotationSpeedMultiplier(_target: number, _durationMs: number = 0): void {
+    // no-op:大陆固定后,mesh 不再自转。光照(uSunDir)由 EarthScene 每帧
+    // 按 UTC 时间算,跟"1:1 真实时间"语义等价(大陆纹理固定,昼夜跟着 UTC 漂移)。
+  }
+
+  /**
+   * 当前自转角(度, 0-360) — 历史兼容,大陆固定后永远返回 0
    */
   get rotationDegrees(): number {
-    return (this.virtualElapsed * ROTATION_SPEED * 180) / Math.PI;
+    return (this.virtualElapsed * Earth.ROTATION_SPEED * 180) / Math.PI;
   }
 
   /**
-   * 当前旋转速度倍数(用于 devtools 调试)
+   * 当前旋转速度倍数(用于 devtools 调试) — 大陆固定后永远 0
    */
   get currentRotationSpeedMultiplier(): number {
-    return this.speedTween.value;
+    return 0;
   }
 
   dispose(): void {

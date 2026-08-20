@@ -189,16 +189,29 @@ describe("回归测试 — 完整链路", () => {
     // y > 0（北半球夏天 → decl > 0）
     expect(y).toBeGreaterThan(0);
     // 直射经度：UTC 20:00 → 12 时 0，差 8h → -120°
-    // 2026-08-20 修正:sunDirection x 分量 = -cos(decl)·cos(lon) 匹配 Three.js 球体
+    // 2026-08-20 二次修正:sunDirection lon 加 180° 偏移,跟 latLonToCartesian 一致
     const declDeg = solarDeclination(date);
     const expectedX =
       -Math.cos((declDeg * Math.PI) / 180) *
-      Math.cos((-120 * Math.PI) / 180);
+      Math.cos((-120 + 180) * Math.PI / 180);
     expect(Math.abs(x - expectedX)).toBeLessThan(1e-9);
-    // 验证 z 分量 = cos(decl) × sin(-120°)
+    // 验证 z 分量 = cos(decl) × sin(-120°+180°) = cos(decl) × sin(60°)
     const expectedZ =
       Math.cos((declDeg * Math.PI) / 180) *
-      Math.sin((-120 * Math.PI) / 180);
+      Math.sin((-120 + 180) * Math.PI / 180);
     expect(Math.abs(z - expectedZ)).toBeLessThan(1e-9);
+  });
+
+  it("⚠️ 关键回归: 昼面方向跟 latLonToCartesian 一致(避免地图-光照错位 180°)", () => {
+    // 用春分(decl=0)消除赤纬角影响,只看 lon 偏移
+    // UTC 12:00 直射本初子午线(物理地理 0°)
+    // 期望:太阳方向 (latLonToCartesian 加 180° 偏移后) 应该 = 球面 local 180° 位置
+    //       = (-cos(0)·cos(180°), sin(0), cos(0)·sin(180°)) = (1, 0, 0)
+    const date = new Date(Date.UTC(2026, 2, 20, 12, 0, 0));
+    const [x, y, z] = sunDirection(date);
+    // 容差放宽:春分 decl 残留 ~1.2°(公式不严格 = 0),sin/decl 引入 ~0.02
+    expect(Math.abs(x - 1)).toBeLessThan(0.05);
+    expect(Math.abs(y)).toBeLessThan(0.05);
+    expect(Math.abs(z)).toBeLessThan(0.05);
   });
 });
