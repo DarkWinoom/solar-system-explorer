@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { InfoCard } from "../../src/ui/InfoCard";
 import { i18n } from "../../src/i18n";
 import { zhCN } from "../../src/i18n/locales/zh-CN";
@@ -13,6 +13,8 @@ import { enUS } from "../../src/i18n/locales/en-US";
  *   3. 重置后回到"待定位"
  *
  * 用 jsdom 测 DOM 行为(InfoCard 是 DOM class,核心合约在 DOM 上)。
+ * sun 倒计时依赖"当前时间"——用 vi.useFakeTimers + setSystemTime 固定到 LA 当地 12:00 PDT
+ * (确保既不是 sunrise 也不是 sunset 边界,测试稳定)。
  */
 describe("InfoCard", () => {
   let card: InfoCard;
@@ -25,6 +27,9 @@ describe("InfoCard", () => {
   });
 
   beforeEach(() => {
+    // 固定到 LA 当地 18:30 PDT(UTC 01:30 第二天)— 距离日落 19:10 PDT 还有 ~40 分钟
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-09T01:30:00Z")); // UTC 01:30 = PDT 18:30
     // 确保 i18n 已知(测试间不持久化,默认 en-US)
     i18n.setLocale("en-US");
     parent = document.createElement("div");
@@ -35,6 +40,7 @@ describe("InfoCard", () => {
   afterEach(() => {
     card.unmount();
     parent.remove();
+    vi.useRealTimers();
   });
 
   it("shows 'Awaiting location' for sun value when location is unknown", () => {
@@ -64,8 +70,8 @@ describe("InfoCard", () => {
 
   it("uses provided utcOffset (not local timezone) for sun calculation", () => {
     // 关键测试:用 LA 经纬度 + LA 时区 utcOffset=-7
-    // 跟"用 LA 经纬度 + 用户本机时区 (Asia/Shanghai +8)" 的结果应该不同
-    // (用户在 Asia/Shanghai,但 IP 定位到 LA — 这是测试要覆盖的关键场景)
+    // fake time 固定到 UTC 19:00 = PDT 12:00(LA 当地中午)
+    // 此时 LA 12:00, sunrise ~6:30, sunset ~19:10 → 应显示"距日落 ~7h"
     card.mount(parent);
     card.setLocation(34.04, -118.25, -7); // LA + PDT
     const sunValueLA = card.element.querySelector(
@@ -73,9 +79,9 @@ describe("InfoCard", () => {
     ) as HTMLElement;
     // 不是 "Awaiting location"
     expect(sunValueLA.textContent).not.toBe("Awaiting location");
-    // 应该有真实倒计时文字
+    // 应该有真实倒计时文字 — 应该是 "Sunset in 7h" 附近(LA 12:00 vs sunset 19:10)
     expect(sunValueLA.textContent).toMatch(
-      /^(Sunrise in|Sunset in|Polar day|Polar night)/
+      /^(Sunrise in|Sunset in|Polar day|Polar night) \d+h \d+m$/
     );
   });
 

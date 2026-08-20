@@ -64,6 +64,7 @@ function getCurrentTimezone(): string | null {
  * 位置识别入口
  *
  * 优先级(2026-08-20 用户反馈调整):
+ *   0. URL ?loc=lat,lon (最高优先级,手动覆盖,不持久化)
  *   1. Intl 时区查内置表(覆盖 28 个主要城市)
  *      - 反映用户**真实意图**(他设定的系统时区)
  *      - 不受 VPN / 代理影响(VPN 翻墙时 IP 出口在国外,但用户仍想用国内时区)
@@ -73,7 +74,7 @@ function getCurrentTimezone(): string | null {
  *
  * @contract
  *   - `locate()` 返回 Promise<{ lat, lon, utcOffset, source }>
- *   - source 标识数据来源('intl' / 'ipapi' / 'ipwho' / 'utc')
+ *   - source 标识数据来源('url' / 'intl' / 'ipapi' / 'ipwho' / 'utc')
  *   - Intl 路径不查网络,IP API 路径 3s 单 timeout
  *   - 测试用 `_resetLocateForTest()` / `_setGetTimezoneOverrideForTest()`
  */

@@ -84,7 +84,9 @@ export function sunDirection(
 
   // 球坐标 → 笛卡尔
   // 太阳方向 = 地球表面"太阳直射点"的法向（外指）
-  const x = Math.cos(decl) * Math.cos(lon);
+  // ⚠️ 2026-08-20 修正:x 用 -cos(lon) 匹配 Three.js SphereGeometry 渲染
+  // (原 +cos 公式导致晨昏线镜像翻转,见 src/geo/coords.ts 注释)
+  const x = -Math.cos(decl) * Math.cos(lon);
   const y = Math.sin(decl);
   const z = Math.cos(decl) * Math.sin(lon);
 

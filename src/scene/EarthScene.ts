@@ -62,7 +62,11 @@ export class EarthScene {
   /** 太阳方向（从地球指向太阳的世界空间 Vector3）— 每帧从 sunDirection() 算 */
   private readonly sunPosition: THREE.Vector3 = new THREE.Vector3();
   private stars: Stars | null = null;
-  private earth: Earth | null = null;
+  /**
+   * Earth 暴露 public 供 app.ts 控制旋转速度(阶段 11 启动高速 → locate 完成减速)
+   * dispose 时会重置为 null,所以不能 readonly
+   */
+  earth: Earth | null = null;
   private atmosphere: Atmosphere | null = null;
   /**
    * OrbitControls — 拖拽/缩放交互
@@ -160,6 +164,8 @@ export class EarthScene {
     // Timer 需要每帧 update() 才能推进时间
     this.clock.update();
     const elapsed = this.clock.getElapsed();
+    // r185 Timer.getDelta() 给出本帧 delta 秒数(供 Earth.update 用)
+    const delta = this.clock.getDelta();
 
     // 1) 实时算太阳位置（从地球指向太阳）
     const sd = sunDirection(new Date());
@@ -183,7 +189,7 @@ export class EarthScene {
       this.stars.update(elapsed);
     }
     if (this.earth) {
-      this.earth.update(elapsed);
+      this.earth.update(elapsed, delta);
     }
 
     // 3) OrbitControls.update（enableDamping 需要每帧调用）

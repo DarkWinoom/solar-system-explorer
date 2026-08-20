@@ -17,9 +17,11 @@ import * as THREE from "three";
  */
 describe("coords", () => {
   describe("latLonToCartesian", () => {
-    it("equator (0, 0) maps to (1, 0, 0)", () => {
+    // 2026-08-20 修正:Three.js SphereGeometry 实际公式 vertex.x = -ringRadius * cos(phi)
+    // (即 lat=0,lon=0 渲染在 -x 方向,不是 +x)。latLonToCartesian 必须匹配这个公式
+    it("equator (0, 0) maps to (-1, 0, 0) — Three.js sphere convention", () => {
       const v = latLonToCartesian(0, 0);
-      expect(v.x).toBeCloseTo(1, 5);
+      expect(v.x).toBeCloseTo(-1, 5);
       expect(v.y).toBeCloseTo(0, 5);
       expect(v.z).toBeCloseTo(0, 5);
     });
@@ -38,6 +40,13 @@ describe("coords", () => {
       expect(v.z).toBeCloseTo(1, 5);
     });
 
+    it("west 90° (0, -90) maps to (0, 0, -1)", () => {
+      const v = latLonToCartesian(0, -90);
+      expect(v.x).toBeCloseTo(0, 5);
+      expect(v.y).toBeCloseTo(0, 5);
+      expect(v.z).toBeCloseTo(-1, 5);
+    });
+
     it("south pole (-90, 0) maps to (0, -1, 0)", () => {
       const v = latLonToCartesian(-90, 0);
       expect(v.x).toBeCloseTo(0, 5);
@@ -45,13 +54,23 @@ describe("coords", () => {
       expect(v.z).toBeCloseTo(0, 5);
     });
 
-    it("Beijing (39.9, 116.4) maps to roughly (cos39.9·cos116.4, sin39.9, cos39.9·sin116.4)", () => {
+    it("Beijing (39.9, 116.4) maps to (-cos39.9·cos116.4, sin39.9, cos39.9·sin116.4)", () => {
       const v = latLonToCartesian(39.9, 116.4);
       const latRad = (39.9 * Math.PI) / 180;
       const lonRad = (116.4 * Math.PI) / 180;
-      expect(v.x).toBeCloseTo(Math.cos(latRad) * Math.cos(lonRad), 5);
+      expect(v.x).toBeCloseTo(-Math.cos(latRad) * Math.cos(lonRad), 5);
       expect(v.y).toBeCloseTo(Math.sin(latRad), 5);
       expect(v.z).toBeCloseTo(Math.cos(latRad) * Math.sin(lonRad), 5);
+    });
+
+    it("Shanghai (31.2, 121.5) — verify for camera alignment", () => {
+      const v = latLonToCartesian(31.2, 121.5);
+      // 关键:不能简单判断数值,要验证它在球面上是"上海"位置
+      // 模长 = 1(单位球)
+      const len = Math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2);
+      expect(len).toBeCloseTo(1, 5);
+      // y 应该是 sin(31.2°) ≈ 0.52(北半球偏上)
+      expect(v.y).toBeCloseTo(Math.sin((31.2 * Math.PI) / 180), 5);
     });
   });
 

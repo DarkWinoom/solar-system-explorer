@@ -189,10 +189,10 @@ describe("回归测试 — 完整链路", () => {
     // y > 0（北半球夏天 → decl > 0）
     expect(y).toBeGreaterThan(0);
     // 直射经度：UTC 20:00 → 12 时 0，差 8h → -120°
-    // 验证 x 分量 = cos(decl) × cos(-120°)
+    // 2026-08-20 修正:sunDirection x 分量 = -cos(decl)·cos(lon) 匹配 Three.js 球体
     const declDeg = solarDeclination(date);
     const expectedX =
-      Math.cos((declDeg * Math.PI) / 180) *
+      -Math.cos((declDeg * Math.PI) / 180) *
       Math.cos((-120 * Math.PI) / 180);
     expect(Math.abs(x - expectedX)).toBeLessThan(1e-9);
     // 验证 z 分量 = cos(decl) × sin(-120°)

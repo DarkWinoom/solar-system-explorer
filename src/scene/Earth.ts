@@ -16,6 +16,7 @@ import {
   vec3,
   vec4,
 } from "three/tsl";
+import { SpeedTween } from "./SpeedTween";
 
 /**
  * 1:1 现实自转角速度（rad / sec）
@@ -69,7 +70,16 @@ export class Earth {
   // MeshStandardNodeMaterial 类型 r160 的 @types/three 不覆盖, 用 any 兜底
   // 运行时由 build/three.module.js + examples/jsm/... 提供实际实现
   private readonly material: any;
-  private rotationRadians: number = 0;
+  /**
+   * 虚拟累计时间(秒) — 1:1 真实时间按 rotationSpeedMultiplier 加权
+   * 不用外部 elapsed,因为乘数变化时 elapsed 不连续
+   */
+  private virtualElapsed: number = 0;
+  /**
+   * 速度倍数 tween(独立 class,可单测)
+   * 阶段 11 启动 60x → locate 完成 3s 减速回 1x
+   */
+  private speedTween: SpeedTween = new SpeedTween();
   /** TSL uniform vec3 — 太阳相对地球的方向（从地球指向太阳） */
   private readonly uSunDir;
 
@@ -177,19 +187,45 @@ export class Earth {
   }
 
   /**
-   * 每帧调用：1:1 现实自转
-   * @param elapsedSeconds 自启动以来的累计秒数
+   * 每帧调用：自转(用 delta 而非 elapsed,因为速度倍数变化时 elapsed 不连续)
+   * @param _elapsed 累计秒数(r185 Timer.getElapsed,目前不用,保留为 API 兼容)
+   * @param delta 这一帧的 delta 秒数(r185 Timer.getDelta)
    */
-  update(elapsedSeconds: number): void {
-    this.rotationRadians = elapsedSeconds * ROTATION_SPEED;
-    this.mesh.rotation.y = this.rotationRadians;
+  update(_elapsed: number, delta: number): void {
+    // 1. 推进 speedTween
+    this.speedTween.update();
+    const speed = this.speedTween.value;
+    // 2. 用 delta 累加 virtualElapsed(乘以当前 speed)
+    this.virtualElapsed += delta * speed;
+    // 3. 应用到 mesh
+    this.mesh.rotation.y = this.virtualElapsed * ROTATION_SPEED;
   }
 
   /**
-   * 当前自转角（度, 0-360）
+   * 设置旋转速度倍数(可带过渡)
+   * @param target 目标倍数(0=暂停, 1=1:1 真实, 60=60x)
+   * @param durationMs 过渡时长(毫秒);0 = 立即切换
+   *
+   * 阶段 11 用法:
+   *   - 启动: setRotationSpeedMultiplier(60, 0) — 立即 60x
+   *   - locate 完成: setRotationSpeedMultiplier(1, 3000) — 3s 减速回 1x
+   */
+  setRotationSpeedMultiplier(target: number, durationMs: number = 0): void {
+    this.speedTween.set(target, durationMs);
+  }
+
+  /**
+   * 当前自转角(度, 0-360)
    */
   get rotationDegrees(): number {
-    return (this.rotationRadians * 180) / Math.PI;
+    return (this.virtualElapsed * ROTATION_SPEED * 180) / Math.PI;
+  }
+
+  /**
+   * 当前旋转速度倍数(用于 devtools 调试)
+   */
+  get currentRotationSpeedMultiplier(): number {
+    return this.speedTween.value;
   }
 
   dispose(): void {
