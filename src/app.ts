@@ -1,6 +1,7 @@
 import { EarthScene } from "./scene/EarthScene";
 import { buildLocale } from "./i18n/buildLocale";
 import { UIRoot } from "./ui/UIRoot";
+import { locate } from "./geo/locate";
 
 /**
  * 应用初始化入口
@@ -59,6 +60,21 @@ export function initApp(): void {
     onRecenter: recenterCamera,
   });
   ui.mount(document.body);
+
+  // 位置识别(阶段 11)— fire-and-forget,不阻塞 UI 启动
+  // 完成后只更新 InfoCard(不动相机:用户视角优先)
+  // 传 utcOffset 让 InfoCard 用 IP 所在地的时区算日出日落(不能用户电脑时区 — VPN 常见)
+  void locate()
+    .then((result) => {
+      console.log(
+        `[3d-earth] located: ${result.source} (${result.lat.toFixed(2)}, ${result.lon.toFixed(2)}, utc${result.utcOffset >= 0 ? "+" : ""}${result.utcOffset})`
+      );
+      ui?.infoCard.setLocation(result.lat, result.lon, result.utcOffset);
+    })
+    .catch((err) => {
+      // locate 内部已 fallback UTC,这里只是兜底防 bug
+      console.warn("[3d-earth] locate unexpected error:", err);
+    });
 
   // 标签页隐藏时暂停渲染，节省资源
   document.addEventListener("visibilitychange", () => {

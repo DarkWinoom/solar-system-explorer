@@ -35,6 +35,11 @@ export class InfoCard {
   private locationKnown = false;
   private lat = 0;
   private lon = 0;
+  /**
+   * IP 所在地的 UTC 偏移(小时)。null = 未知(用本机时区)
+   * 重要:不能用用户本机时区!IP 所在地 ≠ 电脑时区(VPN / 出差常见)
+   */
+  private utcOffset: number | null = null;
 
   constructor() {
     this.element = document.createElement("div");
@@ -106,10 +111,18 @@ export class InfoCard {
     this.mounted = false;
   }
 
-  /** 阶段 11 接入:由 GeoLocation 调用,更新经纬度。会自动启用 sun 倒计时显示。 */
-  setLocation(lat: number, lon: number): void {
+  /**
+   * 阶段 11 接入:由 GeoLocation 调用,更新经纬度。
+   * @param lat 纬度(度)
+   * @param lon 经度(度)
+   * @param utcOffset IP 所在地的 UTC 偏移(小时);不传时用本机时区(可能不准,常见于 VPN)
+   */
+  setLocation(lat: number, lon: number, utcOffset?: number): void {
     this.lat = lat;
     this.lon = lon;
+    if (typeof utcOffset === "number") {
+      this.utcOffset = utcOffset;
+    }
     this.locationKnown = true;
     this.update();
   }
@@ -117,6 +130,7 @@ export class InfoCard {
   /** 测试/调试用:重置为未知位置 */
   resetLocation(): void {
     this.locationKnown = false;
+    this.utcOffset = null;
     this.update();
   }
 
@@ -139,8 +153,12 @@ export class InfoCard {
   }
 
   private computeSunCountdown(now: Date): string {
-    const tzOffsetMin = -now.getTimezoneOffset();
-    const tz = tzOffsetMin / 60;
+    // 优先用 IP 所在地的 UTC 偏移(VPN/出差常见 IP ≠ 电脑时区)
+    // 未设置时退化到本机时区
+    const tz =
+      this.utcOffset !== null
+        ? this.utcOffset
+        : -now.getTimezoneOffset() / 60;
     const { sunrise, sunset } = calcSunTimes(this.lat, this.lon, now, tz);
 
     // 极昼 / 极夜
@@ -151,23 +169,30 @@ export class InfoCard {
         : i18n.t(i18nKeys.ui.sun.countdown.polarNight);
     }
 
-    const nowHour =
-      now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+    // **关键**:`nowHour` 必须用 tz 转换到 IP 所在地时间,不能直接用本机 getHours()
+    // 不然:VPN 用户本机时间 9:46(北京时间) 但 IP 所在地 LA 是 18:46(PDT),
+    //     用 9:46 跟 LA 的 sunset(19:10) 比 → "距日落 9h 24m" — 错!
+    //     正确:用 18:46 跟 19:10 比 → "距日落 24m" — 对
+    const utcHours =
+      now.getUTCHours() +
+      now.getUTCMinutes() / 60 +
+      now.getUTCSeconds() / 3600;
+    const localNowHour = (utcHours + tz + 24) % 24;
 
     if (sunrise !== null && sunset !== null) {
-      if (nowHour < sunrise) {
+      if (localNowHour < sunrise) {
         return `${i18n.t(i18nKeys.ui.sun.countdown.sunrise)} ${formatCountdown(
-          (sunrise - nowHour) * 3600_000
+          (sunrise - localNowHour) * 3600_000
         )}`;
-      } else if (nowHour < sunset) {
+      } else if (localNowHour < sunset) {
         return `${i18n.t(i18nKeys.ui.sun.countdown.sunset)} ${formatCountdown(
-          (sunset - nowHour) * 3600_000
+          (sunset - localNowHour) * 3600_000
         )}`;
       } else {
         // 已过今天日落 → 明天日出
         const tomorrowSunrise = sunrise + 24;
         return `${i18n.t(i18nKeys.ui.sun.countdown.sunrise)} ${formatCountdown(
-          (tomorrowSunrise - nowHour) * 3600_000
+          (tomorrowSunrise - localNowHour) * 3600_000
         )}`;
       }
     }
