@@ -2,10 +2,13 @@ import * as THREE from "three";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 import {
   bumpMap,
+  cameraPosition,
+  color,
   max,
   mix,
   normalWorldGeometry,
   output,
+  positionWorld,
   step,
   texture,
   uniform,
@@ -106,7 +109,20 @@ export class Earth {
     // 云强度：从整合图的蓝通道取, smoothstep(0.2, 1)
     const cloudsStrength = texture(bumpRoughnessCloudsTexture, uv()).b.smoothstep(0.2, 1);
 
-    // （Fresnel 留给阶段 7 大气层 — 本阶段不用）
+    // --- 大气层节点（与 Atmosphere.ts 共享的逻辑）---
+    // 跟 Atmosphere.ts 独立定义(TSL 节点无副作用,重复定义 OK;不共享 uniform 以便 Earth 和 Atmosphere mesh 各自独立)
+    // 颜色值在 Atmosphere.ts 同步,改色时两处都要改(阶段 8 之后可以提到 EarthScene 共享)
+    const viewDirection = positionWorld.sub(cameraPosition).normalize();
+    const fresnel = viewDirection.dot(normalWorldGeometry).abs().oneMinus().toVar();
+
+    // 大气颜色 uniform(暖橙=夜面边缘 / 冷蓝=白天天顶)
+    const atmosphereTwilightColor = uniform(color("#bc490b"));
+    const atmosphereDayColor = uniform(color("#4db2ff"));
+    const atmosphereColor = mix(
+      atmosphereTwilightColor,
+      atmosphereDayColor,
+      sunOrientation.smoothstep(-0.25, 0.75)
+    );
 
     // --- 材质节点（MeshStandardNodeMaterial） ---
     this.material = new MeshStandardNodeMaterial();
@@ -122,10 +138,17 @@ export class Earth {
     this.material.roughnessNode = roughness.remap(0, 1, 0.25, 0.35);
 
     // 3) 自发光 = 夜面城市灯光（始终亮, 不受光影响）
-    // 4) 输出：mix(夜面纹理, PBR 自动算的日面, sunOrientation 的 smoothstep)
+
+    // 4) 输出：3 段 mix ——
+    //   a) 夜面纹理 vs PBR 日面（按 dayStrength 混合）
+    //   b) 上面结果 vs 大气颜色（按 atmosphereMix 混合, 让地球朝光侧边缘有一圈暖橙光）
+    //   c) 跟官方 webgpu_tsl_earth.html 完全一致（外层 BackSide atmosphere + 表面 atmosphereMix 双层）
     const night = texture(nightTexture);
     const dayStrength = sunOrientation.smoothstep(-0.25, 0.5);
-    const finalOutput = mix(night.rgb, output.rgb, dayStrength);
+    const atmosphereDayStrength = sunOrientation.smoothstep(-0.5, 1);
+    const atmosphereMix = atmosphereDayStrength.mul(fresnel.pow(2)).clamp(0, 1);
+    let finalOutput = mix(night.rgb, output.rgb, dayStrength);
+    finalOutput = mix(finalOutput, atmosphereColor, atmosphereMix);
     this.material.outputNode = vec4(finalOutput, output.a);
 
     // 5) 法线：bumpMap 从整合图的红通道（bump 高度）算

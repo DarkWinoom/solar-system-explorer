@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import { WebGPURenderer } from "three/webgpu";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Stars } from "./Stars";
 import { Earth } from "./Earth";
+import { Atmosphere } from "./Atmosphere";
 import { sunDirection } from "../utils/sun";
 
 /**
@@ -12,6 +14,7 @@ import { sunDirection } from "../utils/sun";
  *   - Earth 用 MeshStandardNodeMaterial（TSL）
  *   - 太阳 = DirectionalLight（位置由 sunDirection(new Date()) 实时算）
  *   - Stars 仍是 GLSL ShaderMaterial（Three.js r160 WebGPU 兼容传统材质）
+ *   - 交互：OrbitControls（拖拽/缩放，禁用 pan）
  *
  * 关键决策：
  *   - 完全对齐 Three.js 官方 webgpu_tsl_earth.html 示例
@@ -21,8 +24,8 @@ import { sunDirection } from "../utils/sun";
  * 浏览器要求：Chrome / Edge 113+（WebGPU 支持）
  *
  * 后续阶段：
- *   - 7: 大气层（BackSide + Fresnel + 暖橙/冷蓝）
- *   - 8: OrbitControls（拖拽/缩放）
+ *   - 8: OrbitControls（拖拽/缩放）✓
+ *   - 9: UI 集成（顶栏 / 信息卡 / 静音 / recenter / 帮助）
  *
  * @contract
  *   - `scene` 永远指向同一个 THREE.Scene 实例
@@ -60,6 +63,15 @@ export class EarthScene {
   private readonly sunPosition: THREE.Vector3 = new THREE.Vector3();
   private stars: Stars | null = null;
   private earth: Earth | null = null;
+  private atmosphere: Atmosphere | null = null;
+  /**
+   * OrbitControls — 拖拽/缩放交互
+   * r185 的 three/addons/* 在我们的 ambient declaration 里被声明为 any,
+   * 实际类型 OrbitControls 在 @types/three/examples/jsm/controls/OrbitControls.d.ts,
+   * 但 module "three/addons/*" 的 wildcard ambient 会让它退化为 any。
+   * 运行时由 examples/jsm/controls/OrbitControls.js 提供。
+   */
+  private controls: any = null;
   private disposed: boolean = false;
 
   constructor(options: EarthSceneOptions) {
@@ -70,7 +82,7 @@ export class EarthScene {
     // --- Scene ---
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(
-      options.backgroundColor ?? 0x02050f
+      options.backgroundColor ?? 0x02050f,
     );
 
     // --- Camera — fov 25 + position (4.5, 2, 3) 对齐官方示例（更近 + 更聚焦） ---
@@ -107,7 +119,21 @@ export class EarthScene {
     if (options.earth !== false) {
       this.earth = new Earth(options.earth);
       this.scene.add(this.earth.mesh);
+
+      // --- 大气层（BackSide + Fresnel,与地球共用 SphereGeometry） ---
+      this.atmosphere = new Atmosphere({ geometry: this.earth.mesh.geometry });
+      this.scene.add(this.atmosphere.mesh);
     }
+
+    // --- OrbitControls（拖拽/缩放）---
+    // 配置：damping 平滑、minDistance 4、maxDistance 8、禁用 pan
+    //   范围 [4, 8] 兼容相机初始 (4.5, 2, 3) distance≈5.77 + 限制"撞脸" / 拖太远
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.enablePan = false;
+    this.controls.minDistance = 4;
+    this.controls.maxDistance = 8;
 
     // Resize handler
     window.addEventListener("resize", this.onResize);
@@ -144,6 +170,10 @@ export class EarthScene {
     if (this.earth) {
       this.earth.setSunDirection(this.sunPosition);
     }
+    // 同步给大气层 shader（uSunDir uniform）
+    if (this.atmosphere) {
+      this.atmosphere.setSunDirection(this.sunPosition);
+    }
 
     // 2) 自转
     if (this.stars) {
@@ -153,7 +183,12 @@ export class EarthScene {
       this.earth.update(elapsed);
     }
 
-    // 3) Render
+    // 3) OrbitControls.update（enableDamping 需要每帧调用）
+    if (this.controls) {
+      this.controls.update();
+    }
+
+    // 4) Render
     this.renderer.render(this.scene, this.camera);
   };
 
@@ -189,6 +224,16 @@ export class EarthScene {
       this.earth = null;
     }
 
+    if (this.atmosphere) {
+      this.atmosphere.dispose();
+      this.atmosphere = null;
+    }
+
+    if (this.controls) {
+      this.controls.dispose();
+      this.controls = null;
+    }
+
     this.scene.traverse((obj) => {
       const mesh = obj as THREE.Mesh;
       if (mesh.geometry) mesh.geometry.dispose();
@@ -203,9 +248,7 @@ export class EarthScene {
     this.renderer.dispose();
 
     if (this.renderer.domElement.parentNode) {
-      this.renderer.domElement.parentNode.removeChild(
-        this.renderer.domElement
-      );
+      this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
   }
 }
