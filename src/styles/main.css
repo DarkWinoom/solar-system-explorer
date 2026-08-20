@@ -2,6 +2,25 @@
    3D Earth Simulator — 全局样式
    ============================================================ */
 
+/* ----------- 字体自托管(本地 woff2,零 Google Fonts CDN 依赖)----------- */
+/* 顺序: Latin(默认 unicode-range)优先,fallback 到其他字符集;按需启用 */
+/* Inter (body 字体) */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+/* Orbitron (display 字体: 标题 / 按钮) */
+@import "@fontsource/orbitron/400.css";
+@import "@fontsource/orbitron/500.css";
+@import "@fontsource/orbitron/700.css";
+@import "@fontsource/orbitron/900.css";
+
+/* JetBrains Mono (mono 字体: 时间 / 数值) */
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/700.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

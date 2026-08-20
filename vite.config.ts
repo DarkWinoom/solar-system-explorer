@@ -25,6 +25,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    // 排除 .agents-docs/(AI 内部文档 + temp 备份目录,不应被 vitest 当作 test 源)
+    exclude: ["**/node_modules/**", "**/dist/**", ".agents-docs/**"],
   },
 });
 

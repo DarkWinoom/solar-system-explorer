@@ -9,8 +9,8 @@ import { LocaleSwitcher } from "./LocaleSwitcher";
  * 高度 56px,半透明背景 + 细线边框
  *
  * @contract
- *   - `mount(parent)` 挂载到 UIRoot 容器
- *   - `unmount()` 移除 DOM + 取消子组件订阅
+ *   - mount(parent) 挂载到 UIRoot 容器
+ *   - unmount() 移除 DOM + 取消子组件订阅
  *   - i18n 切换时标题自动更新
  */
 export class TopBar {
@@ -59,13 +59,12 @@ export class TopBar {
 
     // 右侧:LocaleSwitcher
     this.switcher = new LocaleSwitcher();
-    this.element.appendChild(this.switcher.element);
+    this.switcher.mount(this.element);
   }
 
   mount(parent: HTMLElement): void {
     if (this.mounted) return;
     parent.appendChild(this.element);
-    this.switcher.mount(this.element);
     this.unsubI18n = i18n.subscribe(() => this.renderTitle());
     this.renderTitle();
     this.mounted = true;

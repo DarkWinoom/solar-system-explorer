@@ -9,7 +9,7 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
  * UIRoot — UI 组合根
  *
  * 装配:
- *   - TopBar          顶栏
+ *   - TopBar          顶栏(标题 + LocaleSwitcher)
  *   - InfoCard        左下角信息卡
  *   - HelpHint        右下角操作提示
  *   - RecenterButton  主场景下方(用户操作 OrbitControls 后淡入)
@@ -24,9 +24,7 @@ import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
  *   - `infoCard` 暴露给 caller(阶段 11 接 setLocation)
  */
 export interface UIRootOptions {
-  /** OrbitControls 实例(可选,用于绑定 recenter 按钮) */
   controls?: OrbitControls | null;
-  /** 点击 recenter 时回调(由 caller 决定:相机 tween / 立即复位) */
   onRecenter?: () => void;
 }
 

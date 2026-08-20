@@ -27,10 +27,6 @@ OFL texts: <https://scripts.sil.org/OFL>
 
 NASA imagery is generally in the public domain. See: <https://earthobservatory.nasa.gov/imagery/use-policies>
 
-## Audio
-
-This project does **not** bundle any audio files. Background music is generated procedurally at runtime using the Web Audio API (sine / triangle oscillators, LFO modulation, feedback delay). No external audio assets are used, no audio license is required.
-
 ## Why These Choices
 
 All dependencies above are MIT / OFL / Public Domain — confirmed safe for commercial and personal use. No GPL / LGPL / commercial-licensed assets are used.
