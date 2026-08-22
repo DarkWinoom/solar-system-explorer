@@ -4,7 +4,10 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { Stars } from "./Stars";
 import { Earth } from "./Earth";
 import { Atmosphere } from "./Atmosphere";
+import { Sun } from "./Sun";
+import { Moon } from "./Moon";
 import { sunDirection } from "../utils/sun";
+import { earthOrbitAngle, synodicAge } from "../utils/orbits";
 
 /**
  * EarthScene — Three.js 场景容器（WebGPURenderer 模式）
@@ -59,15 +62,60 @@ export class EarthScene {
   private readonly clock: THREE.Timer;
   /** 太阳 DirectionalLight — position 决定光从哪来（指向 0,0,0） */
   private readonly sun: THREE.DirectionalLight;
+  /**
+   * 太阳 PointLight — 阶段 17 新增，照亮月球
+   * 位置固定 (0, 0, 0)（跟 Sun mesh 同位置）
+   * 强度 2.5（强度够让月球 PBR 材质正确显示昼夜面）
+   */
+  private readonly sunPointLight: THREE.PointLight;
   /** 太阳方向（从地球指向太阳的世界空间 Vector3）— 每帧从 sunDirection() 算 */
   private readonly sunPosition: THREE.Vector3 = new THREE.Vector3();
+  /**
+   * 太阳 mesh — 阶段 17 接入
+   * 固定在原点 (0, 0, 0), 半径 5u（详见 Sun.ts）
+   * dispose 时会重置为 null
+   */
+  sunMesh: Sun | null = null;
   private stars: Stars | null = null;
+  /**
+   * 地球公转 group — 阶段 16 接入
+   * 包住 Earth + Atmosphere(未来包住 MoonOrbit + Moon)
+   * group.rotation.y = earthOrbitAngle(date) 实现"地球绕太阳公转"
+   * 注意: Earth 内部 mesh.rotation.y 始终 = 0(2026-08-20 修复 sun position bug 时已禁用)
+   * group 旋转跟 mesh 自转语义不同:group = 公转(一年一圈), mesh 自转 = 一天一圈
+   * @see /docs/PLAN-SEM.md § 2 + § 7.2
+   */
+  private readonly earthOrbitGroup: THREE.Group = new THREE.Group();
+  /**
+   * 月球公转 group — 阶段 17 接入
+   * 加到 earthOrbitGroup 下, group.rotation.y = (synodicAge/29.53) * 2π
+   * 月球 mesh 在 moonOrbitGroup 里, 默认位置 (0, 0, 0)
+   * 父级 earthOrbitGroup 旋转时, moonOrbitGroup 跟着转(地球带着月球一起公转)
+   */
+  private readonly moonOrbitGroup: THREE.Group = new THREE.Group();
+  /**
+   * 当前地球公转角度(弧度) — tick() 每帧从 new Date() 算
+   * 暴露 public 供测试/调试读
+   */
+  currentEarthOrbitAngle: number = 0;
+  /**
+   * 当前月球公转角度(弧度) — tick() 每帧从 new Date() 算
+   * 暴露 public 供测试/调试读
+   */
+  currentMoonOrbitAngle: number = 0;
   /**
    * Earth 暴露 public 供 app.ts 控制旋转速度(阶段 11 启动高速 → locate 完成减速)
    * dispose 时会重置为 null,所以不能 readonly
    */
   earth: Earth | null = null;
   private atmosphere: Atmosphere | null = null;
+  /**
+   * 月球 mesh — 阶段 17 接入
+   * 加到 moonOrbitGroup 下, 默认位置 (0, 0, 0)
+   * 月球公转由 moonOrbitGroup.rotation.y 控制
+   * dispose 时会重置为 null
+   */
+  moon: Moon | null = null;
   /**
    * OrbitControls — 拖拽/缩放交互
    * r185 的 three/addons/* 在我们的 ambient declaration 里被声明为 any,
@@ -116,6 +164,19 @@ export class EarthScene {
     this.sun.position.set(0, 0, 3); // 初始朝 +Z, 之后每帧更新
     this.scene.add(this.sun);
 
+    // --- 太阳 PointLight — 阶段 17 新增，照亮月球 ---
+    // 位置固定原点(跟 Sun mesh 同位置)，强度 2.5（DirectionalLight 是 2, PointLight 略强补衰减）
+    this.sunPointLight = new THREE.PointLight(0xfff5e0, 2.5, 0, 1.5);
+    this.sunPointLight.position.set(0, 0, 0);
+    this.scene.add(this.sunPointLight);
+
+    // --- 太阳 mesh（阶段 17 接入） — 半径 5u, 固定原点 ---
+    this.sunMesh = new Sun({ radius: 5.0 });
+    this.scene.add(this.sunMesh.mesh);
+    if (this.sunMesh.corona) {
+      this.scene.add(this.sunMesh.corona);
+    }
+
     // --- 星空（GLSL ShaderMaterial, WebGPU 兼容） ---
     if (options.stars !== false) {
       this.stars = new Stars(options.stars);
@@ -125,11 +186,24 @@ export class EarthScene {
     // --- 地球（TSL MeshStandardNodeMaterial） ---
     if (options.earth !== false) {
       this.earth = new Earth(options.earth);
-      this.scene.add(this.earth.mesh);
+      // 阶段 16: 地球 + 大气层 加到 earthOrbitGroup, 未来 moonOrbit + moon 也加进来
+      // earthOrbitGroup.rotation.y 由 tick() 每帧从 earthOrbitAngle(new Date()) 算
+      this.earthOrbitGroup.add(this.earth.mesh);
 
       // --- 大气层（BackSide + Fresnel,与地球共用 SphereGeometry） ---
       this.atmosphere = new Atmosphere({ geometry: this.earth.mesh.geometry });
-      this.scene.add(this.atmosphere.mesh);
+      this.earthOrbitGroup.add(this.atmosphere.mesh);
+
+      // --- 月球（阶段 17 接入） — 半径 0.27u, 纹理 solarsystemscope ---
+      // Moon 加到 moonOrbitGroup, moonOrbitGroup 加到 earthOrbitGroup
+      // earthOrbitGroup 转 → 月球跟着地球一起公转
+      // moonOrbitGroup 转 → 月球相对地球公转
+      this.moon = new Moon({ radius: 0.27 });
+      this.moonOrbitGroup.add(this.moon.mesh);
+      this.earthOrbitGroup.add(this.moonOrbitGroup);
+
+      // earthOrbitGroup 本身 add 到 root scene
+      this.scene.add(this.earthOrbitGroup);
     }
 
     // --- OrbitControls（拖拽/缩放）---
@@ -183,6 +257,21 @@ export class EarthScene {
     if (this.atmosphere) {
       this.atmosphere.setSunDirection(this.sunPosition);
     }
+    // 同步给月球 shader（uSunDir uniform）— 阶段 17 新增
+    if (this.moon) {
+      this.moon.setSunDirection(this.sunPosition);
+    }
+
+    // 2) 地球公转（阶段 16）— group.rotation.y = earthOrbitAngle(new Date())
+    // 注意: 这是 1 圈/年, 慢得看不出视觉变化, 但代码上准备好"地球绕太阳公转"
+    // 未来阶段 18 ViewModeTabs 切"总览"时, 配合 earthOrbitGroup.position(后续接入)看地球
+    this.currentEarthOrbitAngle = earthOrbitAngle(new Date());
+    this.earthOrbitGroup.rotation.y = this.currentEarthOrbitAngle;
+
+    // 3) 月球公转（阶段 17）— moonOrbitGroup.rotation.y = (synodicAge/29.53) * 2π
+    // 朔望月 29.53 天, 1 圈/月, 视觉上月球相对地球明显移动
+    this.currentMoonOrbitAngle = (synodicAge(new Date()) / 29.530588853) * 2 * Math.PI;
+    this.moonOrbitGroup.rotation.y = this.currentMoonOrbitAngle;
 
     // 2) 自转
     if (this.stars) {
@@ -223,6 +312,11 @@ export class EarthScene {
 
     window.removeEventListener("resize", this.onResize);
 
+    // 移除 PointLight（阶段 17 新增, dispose 时从 scene 移除）
+    if (this.sunPointLight.parent) {
+      this.sunPointLight.parent.remove(this.sunPointLight);
+    }
+
     if (this.stars) {
       this.stars.dispose();
       this.stars = null;
@@ -236,6 +330,16 @@ export class EarthScene {
     if (this.atmosphere) {
       this.atmosphere.dispose();
       this.atmosphere = null;
+    }
+
+    if (this.moon) {
+      this.moon.dispose();
+      this.moon = null;
+    }
+
+    if (this.sunMesh) {
+      this.sunMesh.dispose();
+      this.sunMesh = null;
     }
 
     if (this.controls) {

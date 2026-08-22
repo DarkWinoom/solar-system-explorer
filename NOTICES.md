@@ -27,6 +27,16 @@ OFL texts: <https://scripts.sil.org/OFL>
 
 NASA imagery is generally in the public domain. See: <https://earthobservatory.nasa.gov/imagery/use-policies>
 
+## Solar System Scope Textures (CC BY 4.0)
+
+| Asset | Source | License |
+| --- | --- | --- |
+| Sun (2k_sun.jpg) | [Solar System Scope](https://www.solarsystemscope.com/textures/) | CC BY 4.0 |
+| Moon (2k_moon.jpg) | [Solar System Scope](https://www.solarsystemscope.com/textures/) | CC BY 4.0 |
+
+Textures are from <https://www.solarsystemscope.com/textures/>, used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+© 2016-2019 Solar System Scope.
+
 ## Why These Choices
 
 All dependencies above are MIT / OFL / Public Domain — confirmed safe for commercial and personal use. No GPL / LGPL / commercial-licensed assets are used.
