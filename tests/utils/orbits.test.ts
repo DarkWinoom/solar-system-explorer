@@ -6,6 +6,7 @@ import {
   MOON_ORBIT_RADIUS,
   earthOrbitAngle,
   earthOrbitPosition,
+  fovFittingDistance,
   moonPhase,
   moonOrbitPosition,
   overviewCameraPose,
@@ -145,5 +146,74 @@ describe("synodicAge 与 moonPhase", () => {
     expect(lastQuarter.name).toBe("lastQuarter");
     expect(lastQuarter.illumination).toBeGreaterThan(0.4);
     expect(lastQuarter.illumination).toBeLessThan(0.6);
+  });
+});
+
+describe("fovFittingDistance — 通用 FOV 适配相机距离", () => {
+  // 用 fov=25°、radius=1u、screenRatio=0.6 验证多种 aspect 下的距离。
+  // min(vFov, hFov) 决定有效 FOV，distance = radius / tan(minFov × 0.3)。
+  it("方形屏 (aspect=1)：垂直=水平=25°，distance ≈ 1 / tan(7.5°)", () => {
+    const expected = 1 / Math.tan((7.5 * Math.PI) / 180);
+    expect(fovFittingDistance(1, 25, 1, 0.6)).toBeCloseTo(expected, 5);
+  });
+
+  it("窄屏 (aspect=0.5, vertical 屏)：水平 FOV < 垂直 FOV，distance 用 hFov 算（更大距离）", () => {
+    // 用代码同款公式算 expected, 避免手算精度问题
+    const vFov = 25;
+    const hFov = 2 * Math.atan(Math.tan((vFov * Math.PI) / 360) * 0.5) * (180 / Math.PI);
+    const fovEff = Math.min(vFov, hFov);
+    const expected = 1 / Math.tan(((fovEff * 0.6) / 2 * Math.PI) / 180);
+    expect(fovFittingDistance(1, 25, 0.5, 0.6)).toBeCloseTo(expected, 9);
+    // 窄屏距离应大于方屏（mesh 在短边占屏需要更远才能 fit）
+    expect(fovFittingDistance(1, 25, 0.5, 0.6)).toBeGreaterThan(
+      fovFittingDistance(1, 25, 1, 0.6),
+    );
+  });
+
+  it("宽屏 (aspect=2)：水平 FOV > 垂直 FOV，distance 用 vFov 算（同方屏 vFov=25）", () => {
+    // hFov = 2 * atan(tan(12.5°) * 2) = 47.8°，min = 25°
+    const expected = 1 / Math.tan((7.5 * Math.PI) / 180);
+    expect(fovFittingDistance(1, 25, 2, 0.6)).toBeCloseTo(expected, 5);
+  });
+
+  it("screenRatio 越大（mesh 占屏越大），相机越近、距离越小", () => {
+    expect(fovFittingDistance(1, 25, 1, 0.9)).toBeLessThan(
+      fovFittingDistance(1, 25, 1, 0.6),
+    );
+    expect(fovFittingDistance(1, 25, 1, 0.3)).toBeGreaterThan(
+      fovFittingDistance(1, 25, 1, 0.6),
+    );
+  });
+
+  it("radius 翻倍，距离翻倍（线性）", () => {
+    const small = fovFittingDistance(1, 25, 1, 0.6);
+    const large = fovFittingDistance(2, 25, 1, 0.6);
+    expect(large / small).toBeCloseTo(2, 5);
+  });
+
+  it("太阳 (R=5u) 在窄屏 (aspect=0.68) 占屏 60% 时 distance ≈ 37u", () => {
+    // vFov=25, hFov ≈ 2*atan(tan(12.5°)*0.68) = 17.2°，min=17.2
+    // distance = 5 / tan(17.2*0.6/2) = 5 / tan(5.16°) ≈ 55.4u
+    const distance = fovFittingDistance(5, 25, 0.68, 0.6);
+    expect(distance).toBeGreaterThan(50);
+    expect(distance).toBeLessThan(60);
+  });
+
+  it("月球 (R=0.5u) 在窄屏占屏 50% 时 distance ≈ 4.5u", () => {
+    // 0.5 / tan(17.2*0.5/2) = 0.5 / tan(4.3°) ≈ 6.65u
+    const distance = fovFittingDistance(0.5, 25, 0.68, 0.5);
+    expect(distance).toBeGreaterThan(5);
+    expect(distance).toBeLessThan(8);
+  });
+
+  it("radius=0 边界：返回 0（不除零）", () => {
+    expect(fovFittingDistance(0, 25, 1, 0.6)).toBe(0);
+  });
+
+  it("默认 screenRatio = 0.6", () => {
+    expect(fovFittingDistance(1, 25, 1)).toBeCloseTo(
+      fovFittingDistance(1, 25, 1, 0.6),
+      9,
+    );
   });
 });

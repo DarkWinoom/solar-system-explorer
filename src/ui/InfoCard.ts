@@ -7,12 +7,17 @@ import type { MoonPhase } from "../utils/orbits";
 /**
  * InfoCard — 左下角信息卡
  *
- * 5 行布局(每行 = label 小字 + value 主字):
+ * 5 行布局(每行 = label 左对齐 + value 右对齐,flex space-between):
  *   1. 时区(Intl.DateTimeFormat().resolvedOptions().timeZone)
  *   2. 时间(formatLocalTime,每秒更新)
  *   3. 日出日落倒计时(calcSunTimes(0, 0, date, tz_offset),阶段 11 接真实经纬度)
  *   4. 月相(阶段 18 接入:moonPhase(date).name + .illumination)
  *   5. 公转位置(阶段 18 接入:earthOrbitAngle 推到 dayOfYear 1-365)
+ *
+ * 视觉分组:行 1-2(时区+时间)、行 3(日出日落)、行 4-5(月相+公转) — 三个分组间用 divider
+ *
+ * 修复 v19k: 原 10 行(label+value 各一行)改成 5 行(flex),同 row 内 label/value
+ *   同行 — 节省纵向空间且视觉对齐。data-testid 改用语义化选择器(原 nth-child(6) 失效)。
  *
  * @contract
  *   - `mount(parent)` 挂载 + 启动 1s tick
@@ -21,6 +26,7 @@ import type { MoonPhase } from "../utils/orbits";
  *   - `setMoonPhase(name, illumination)` 阶段 18 接入, 默认显示 "—"
  *   - `setOrbitPosition(dayOfYear, totalDays)` 阶段 18 接入, 默认显示 "—"
  *   - locale 切换时所有 i18n label 自动更新
+ *   - sun/moon/orbit value 可通过 `[data-testid="info-card-*-value"]` 找到
  */
 export class InfoCard {
   private readonly element: HTMLDivElement;
@@ -52,6 +58,12 @@ export class InfoCard {
    */
   private utcOffset: number | null = null;
   /**
+   * v20a: 显式 IANA 时区名(dev 工具 + 第三方扩展用)
+   * 优先级:tzName > Intl 系统时区
+   * 默认 null 表示跟随本机时区(原行为不变)
+   */
+  private tzName: string | null = null;
+  /**
    * 月相 — 默认 null (显示 "—"), 由 setMoonPhase 设置
    */
   private moonPhaseName: MoonPhase | null = null;
@@ -69,7 +81,7 @@ export class InfoCard {
       position: absolute;
       left: 20px;
       bottom: 20px;
-      min-width: 240px;
+      min-width: 300px;
       padding: 16px 18px;
       background: rgba(8, 16, 32, 0.72);
       backdrop-filter: blur(12px);
@@ -97,6 +109,7 @@ export class InfoCard {
     // 行 3:日出日落
     this.sunLabelEl = this.makeLabel();
     this.sunValueEl = this.makeValue();
+    this.sunValueEl.setAttribute("data-testid", "info-card-sun-value");
     this.sunValueEl.style.fontSize = "13px";
     this.sunValueEl.style.color = "#4db2ff";
 
@@ -118,18 +131,14 @@ export class InfoCard {
     this.orbitValueEl.setAttribute("data-testid", "info-card-orbit-value");
     this.orbitValueEl.style.fontSize = "13px";
 
-    this.element.appendChild(this.tzLabelEl);
-    this.element.appendChild(this.tzValueEl);
-    this.element.appendChild(this.timeLabelEl);
-    this.element.appendChild(this.timeValueEl);
-    this.element.appendChild(this.sunLabelEl);
-    this.element.appendChild(this.sunValueEl);
+    // 5 行:每行一个 flex row(label 左 + value 右)
+    this.element.appendChild(this.makeRow(this.tzLabelEl, this.tzValueEl));
+    this.element.appendChild(this.makeRow(this.timeLabelEl, this.timeValueEl));
+    this.element.appendChild(this.makeRow(this.sunLabelEl, this.sunValueEl));
     this.element.appendChild(this.sunDividerEl);
-    this.element.appendChild(this.moonLabelEl);
-    this.element.appendChild(this.moonValueEl);
+    this.element.appendChild(this.makeRow(this.moonLabelEl, this.moonValueEl));
     this.element.appendChild(this.orbitDividerEl);
-    this.element.appendChild(this.orbitLabelEl);
-    this.element.appendChild(this.orbitValueEl);
+    this.element.appendChild(this.makeRow(this.orbitLabelEl, this.orbitValueEl));
   }
 
   mount(parent: HTMLElement): void {
@@ -161,12 +170,23 @@ export class InfoCard {
    * @param lat 纬度(度)
    * @param lon 经度(度)
    * @param utcOffset IP 所在地的 UTC 偏移(小时);不传时用本机时区(可能不准,常见于 VPN)
+   * @param tzName v20a: 显式 IANA 时区名(覆盖 Intl 系统时区)。
+   *   dev URL param `?tz=America/Los_Angeles` 用此参数。
+   *   生产 IP API 路径不传,行为不变。
    */
-  setLocation(lat: number, lon: number, utcOffset?: number): void {
+  setLocation(
+    lat: number,
+    lon: number,
+    utcOffset?: number,
+    tzName?: string,
+  ): void {
     this.lat = lat;
     this.lon = lon;
     if (typeof utcOffset === "number") {
       this.utcOffset = utcOffset;
+    }
+    if (typeof tzName === "string" && tzName.length > 0) {
+      this.tzName = tzName;
     }
     this.locationKnown = true;
     this.update();
@@ -214,8 +234,9 @@ export class InfoCard {
 
   private update(): void {
     const now = new Date();
-    // 时区(Intl 永远真实)
-    this.tzValueEl.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    // 时区:v20a 优先级 tzName (显式 IANA) > Intl 系统时区
+    this.tzValueEl.textContent =
+      this.tzName ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     // 时间(本地,永远真实)
     this.timeValueEl.textContent = formatLocalTime(now);
     // 日出日落倒计时:仅在位置已知时计算
@@ -294,6 +315,30 @@ export class InfoCard {
     return "—";
   }
 
+  /**
+   * 创建一行 row 容器,内部用 flex 布局:
+   *   - label 左对齐(small uppercase)
+   *   - value 右对齐(主字,baseline 对齐)
+   * 行内 gap = 16px,让 label/value 之间留点空间不挤。
+   * 行间不设 margin,留由 divider 控制分组间距。
+   */
+  private makeRow(label: HTMLDivElement, value: HTMLDivElement): HTMLDivElement {
+    const row = document.createElement("div");
+    row.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 16px;
+      margin-top: 8px;
+    `;
+    // 重置子元素在 row 内的 margin(原 makeValue/makeLabel 自带 margin-top: 2/8px)
+    label.style.marginTop = "0";
+    value.style.marginTop = "0";
+    row.appendChild(label);
+    row.appendChild(value);
+    return row;
+  }
+
   private makeLabel(): HTMLDivElement {
     const el = document.createElement("div");
     el.style.cssText = `
@@ -302,7 +347,7 @@ export class InfoCard {
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: rgba(224, 232, 255, 0.45);
-      margin-top: 8px;
+      white-space: nowrap;
     `;
     return el;
   }
@@ -312,7 +357,8 @@ export class InfoCard {
     el.style.cssText = `
       font-family: "JetBrains Mono", monospace;
       color: #e0e8ff;
-      margin-top: 2px;
+      text-align: right;
+      white-space: nowrap;
     `;
     return el;
   }

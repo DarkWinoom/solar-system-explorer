@@ -31,7 +31,7 @@ export interface LocateResult {
    * (不能用用户本机时区 — IP 所在地 ≠ 用户电脑时区,常见于 VPN / 出差)
    */
   utcOffset: number;
-  source: "ipapi" | "ipwho" | "intl" | "utc";
+  source: "ipapi" | "ipwho" | "intl" | "utc" | "url-param";
   /** 失败时的错误信息(source='utc' 时填) */
   error?: string;
 }

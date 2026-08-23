@@ -196,10 +196,10 @@ export function initApp(): void {
           52,
         );
       } else if (mode === "sun") {
-        const pose = scene.getSunCameraPose();
+        const pose = scene.getSunCameraPose(25);
         tweenCameraTo(pose.position, USER_VIEWMODE_DURATION_MS, pose.target, 25);
       } else {
-        const pose = scene.getMoonCameraPose();
+        const pose = scene.getMoonCameraPose(25);
         tweenCameraTo(pose.position, USER_VIEWMODE_DURATION_MS, pose.target, 25);
       }
     },
@@ -232,14 +232,14 @@ export function initApp(): void {
       scene.controls.target.copy(initEarthPos);
       scene.controls.update();
     } else if (initMode === "sun") {
-      const pose = scene.getSunCameraPose();
+      const pose = scene.getSunCameraPose(25);
       scene.camera.fov = 25;
       scene.camera.updateProjectionMatrix();
       scene.camera.position.copy(pose.position);
       scene.controls.target.copy(pose.target);
       scene.controls.update();
     } else {
-      const pose = scene.getMoonCameraPose();
+      const pose = scene.getMoonCameraPose(25);
       scene.camera.fov = 25;
       scene.camera.updateProjectionMatrix();
       scene.camera.position.copy(pose.position);
@@ -288,13 +288,63 @@ export function initApp(): void {
   // 1. 完成 → 更新 InfoCard
   // 2. 2s 延迟后(给用户看高速旋转):
   //    - 如果用户没操作 → tween 地球减速回 1x + 相机平滑对齐到定位位置(3s)
+
+  // v20a: dev URL param 强制定位(跳过 IP API)
+  //   - 用途:截图(无需 VPN 即可演示其他时区)、演示、测试
+  //   - 格式:`?loc=34.04,-118.25,-7&tz=America/Los_Angeles` (LA, PDT)
+  //   - 可选参数:
+  //     · utc 可省(默认本机偏移)
+  //     · tz 可省(默认 Intl 系统时区)
+  //   - 生产环境无影响(只在用户显式带参时启用)
+  //   - 关键:dev 必须在 locate().then 内部 setLocation(覆盖 IP API 结果)
+  const devUrlParams = new URLSearchParams(location.search);
+  const devLocParam = devUrlParams.get("loc");
+  const devTzParam = devUrlParams.get("tz");
+  const devLocMatch = devLocParam?.match(
+    /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*(-?\d+(?:\.\d+)?))?\s*$/,
+  );
+  let devOverride: {
+    lat: number;
+    lon: number;
+    utc: number | undefined;
+    tz: string | undefined;
+  } | null = null;
+  if (devLocMatch) {
+    const devLat = Number(devLocMatch[1]);
+    const devLon = Number(devLocMatch[2]);
+    const devUtc = devLocMatch[3] !== undefined ? Number(devLocMatch[3]) : undefined;
+    devOverride = { lat: devLat, lon: devLon, utc: devUtc, tz: devTzParam ?? undefined };
+    console.log(
+      `[3d-earth] dev location override: (${devLat}, ${devLon}, utc${
+        devUtc !== undefined ? (devUtc >= 0 ? "+" : "") + devUtc : "?"
+      }${devTzParam ? `, tz=${devTzParam}` : ""})`,
+    );
+  }
+
   void locate()
     .then((result) => {
       console.log(
         `[3d-earth] located: ${result.source} (${result.lat.toFixed(2)}, ${result.lon.toFixed(2)}, utc${result.utcOffset >= 0 ? "+" : ""}${result.utcOffset})`
       );
-      locatedResult = result;
-      ui?.infoCard.setLocation(result.lat, result.lon, result.utcOffset);
+      // v20a: dev URL param 优先级最高 — 覆盖 IP API 结果(包括 setLocation + locatedResult)
+      if (devOverride) {
+        locatedResult = {
+          lat: devOverride.lat,
+          lon: devOverride.lon,
+          utcOffset:
+            devOverride.utc ?? -new Date().getTimezoneOffset() / 60,
+          source: "url-param",
+        };
+        ui?.infoCard.setLocation(
+          devOverride.lat,
+          devOverride.lon,
+          devOverride.utc,
+          devOverride.tz,
+        );
+      } else {
+        locatedResult = result;
+        ui?.infoCard.setLocation(result.lat, result.lon, result.utcOffset);
+      }
 
       // 延迟 AUTO_RECENTER_DELAY_MS (修复 v19b: 不再 autoRotate, 纯 tween 到定位位置)
       setTimeout(() => {

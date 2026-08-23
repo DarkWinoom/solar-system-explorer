@@ -46,10 +46,9 @@ describe("InfoCard", () => {
   it("shows 'Awaiting location' for sun value when location is unknown", () => {
     card.mount(parent);
     const sunValue = card.element.querySelector(
-      '[data-testid="info-card"] > div:nth-child(6)'
+      '[data-testid="info-card-sun-value"]'
     ) as HTMLElement;
-    // 简化:第 6 个子元素是 sun value(label=3, value=4 是 time;label=5, value=6 是 sun)
-    // 实际用直接查找 — sunLabel + sunValue 是第 5/6 个 div
+    // v19k 修复:布局改成 5 行 flex row,选择器从 nth-child(6) 改为 data-testid
     expect(sunValue.textContent).toBe("Awaiting location");
   });
 
@@ -59,7 +58,7 @@ describe("InfoCard", () => {
     card.setLocation(39.9, 116.4, 8);
     // sun value 不再是 "Awaiting location"
     const sunValue = card.element.querySelector(
-      '[data-testid="info-card"] > div:nth-child(6)'
+      '[data-testid="info-card-sun-value"]'
     ) as HTMLElement;
     expect(sunValue.textContent).not.toBe("Awaiting location");
     // 真实倒计时应该以 "Sunrise in" / "Sunset in" / "Polar day/night" 开头
@@ -75,7 +74,7 @@ describe("InfoCard", () => {
     card.mount(parent);
     card.setLocation(34.04, -118.25, -7); // LA + PDT
     const sunValueLA = card.element.querySelector(
-      '[data-testid="info-card"] > div:nth-child(6)'
+      '[data-testid="info-card-sun-value"]'
     ) as HTMLElement;
     // 不是 "Awaiting location"
     expect(sunValueLA.textContent).not.toBe("Awaiting location");
@@ -95,7 +94,7 @@ describe("InfoCard", () => {
     // mock 当前时间:UTC 01:46 = 北京 09:46 = LA 18:46(前一天)
     // 验证逻辑分支选了"Sunset in"且数字 < 1h
     const sunValueLA = card.element.querySelector(
-      '[data-testid="info-card"] > div:nth-child(6)'
+      '[data-testid="info-card-sun-value"]'
     ) as HTMLElement;
     // 关键:不应该显示"9h"或更长(说明修复生效)
     expect(sunValueLA.textContent).toMatch(/^Sunset in \d+h \d+m$/);
@@ -115,7 +114,7 @@ describe("InfoCard", () => {
     card.setLocation(39.9, 116.4);
     card.resetLocation();
     const sunValue = card.element.querySelector(
-      '[data-testid="info-card"] > div:nth-child(6)'
+      '[data-testid="info-card-sun-value"]'
     ) as HTMLElement;
     expect(sunValue.textContent).toBe("Awaiting location");
   });

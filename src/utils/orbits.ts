@@ -120,6 +120,37 @@ export function overviewCameraPose(
 }
 
 /**
+ * 根据 mesh 球面半径、相机垂直 FOV 与视口宽高比，返回让该球在屏幕短边
+ * 占屏 `screenRatio`（默认 0.6，即 60% 直径）的相机距离。
+ *
+ * 通用 — 任何已知半径的 mesh（太阳 / 地球 / 月球 / 后续金星等）都可调用，
+ * 切 tab 时按当时 camera.fov / camera.aspect 实时计算，响应式适配窗口大小。
+ *
+ * 算法：取 min(vertical FOV, horizontal FOV) 作为占屏基准。
+ * - 垂直 FOV = camera.fov
+ * - 水平 FOV = 2 * atan(tan(vFov/2) * aspect)
+ * - 距离 = radius / tan(minFov × screenRatio / 2)
+ *
+ * 跨项目适用：任何 Three.js 球体"按 FOV 适配视口" 的相机距离计算
+ */
+export function fovFittingDistance(
+  radius: number,
+  cameraFovDeg: number,
+  aspect: number,
+  screenRatio: number = 0.6,
+): number {
+  if (radius <= 0) return 0;
+  const vFov = cameraFovDeg;
+  const hFov =
+    2 *
+    Math.atan(Math.tan((vFov * Math.PI) / 360) * aspect) *
+    (180 / Math.PI);
+  const fovEff = Math.min(vFov, hFov);
+  const halfAngle = (fovEff * screenRatio * Math.PI) / 360;
+  return radius / Math.tan(halfAngle);
+}
+
+/**
  * 在同一时间点将地球本地北极和太阳直射点映射到世界空间。
  * 这样总览里地球亮面必然朝向场景内真实太阳，同时相机仍能按地理经纬度定位。
  */

@@ -9,6 +9,7 @@ import { Moon } from "./Moon";
 import {
   celestialState,
   overviewCameraPose,
+  fovFittingDistance,
   type CelestialState,
 } from "../utils/orbits";
 
@@ -270,33 +271,59 @@ export class EarthScene {
     return overviewCameraPose(this.currentEarthWorldPosition);
   }
 
-  /** 太阳中心视角：保留稳定的侧上方偏移，用户可继续自由旋转。 */
-  getSunCameraPose(): { position: THREE.Vector3; target: THREE.Vector3 } {
+  /**
+   * 太阳中心视角：响应式按 fov/aspect 算距离，保留侧上方构图偏移。
+   * 距离用 `fovFittingDistance(5u, fov, aspect, 0.45)` — 让 5u 半径的太阳在屏幕
+   * 短边占 45% 直径（再缩 0.6→0.45 后体感"略小"），tangent/Y 偏移按 distance 比例
+   * 缩放，构图风格不随视口变。切 tab 时重新计算，自然适配窗口大小变化。
+   *
+   * 修复 v19k: 接受 `fov` 参数而非读 `this.camera.fov` —— 因为切 tab 时 caller 还没
+   * 调 tweenCameraTo 把 fov 切到 25°(仍保留前一 mode 的 52°),直接读 camera.fov
+   * 会用错的 fov 算 distance,导致相机离太阳过近、视觉过大(实测占屏 76% 而非 42%)。
+   */
+  getSunCameraPose(fov: number): { position: THREE.Vector3; target: THREE.Vector3 } {
     const earthDirection = this.currentEarthWorldPosition.clone().normalize();
     const tangent = new THREE.Vector3(0, 1, 0).cross(earthDirection).normalize();
+    const distance = fovFittingDistance(
+      this.sunMesh ? this.sunMesh.mesh.scale.x * 5.0 : 5.0,
+      fov,
+      this.camera.aspect,
+      0.45,
+    );
     return {
       target: new THREE.Vector3(),
       position: earthDirection
-        .multiplyScalar(19)
-        .addScaledVector(tangent, 4)
-        .add(new THREE.Vector3(0, 6, 0)),
+        .multiplyScalar(distance)
+        .addScaledVector(tangent, distance * 0.22)
+        .add(new THREE.Vector3(0, distance * 0.32, 0)),
     };
   }
 
-  /** 月球中心视角：略偏离日地轴，方便同时察看月面和邻近地球。 */
-  getMoonCameraPose(): { position: THREE.Vector3; target: THREE.Vector3 } {
+  /**
+   * 月球中心视角：响应式按 fov/aspect 算距离（占屏 50%），构图偏移同步缩放。
+   * 位置沿 earthToMoon + tangent + Y 合成方向，离开月球 mesh 一段距离。
+   *
+   * 修复 v19k: 接受 `fov` 参数而非读 `this.camera.fov`, 原因同 getSunCameraPose。
+   */
+  getMoonCameraPose(fov: number): { position: THREE.Vector3; target: THREE.Vector3 } {
     const earthToMoon = this.currentMoonWorldPosition
       .clone()
       .sub(this.currentEarthWorldPosition)
       .normalize();
     const tangent = new THREE.Vector3(0, 1, 0).cross(earthToMoon).normalize();
+    const distance = fovFittingDistance(
+      0.5,
+      fov,
+      this.camera.aspect,
+      0.5,
+    );
     const offset = earthToMoon
-      .multiplyScalar(2.8)
-      .addScaledVector(tangent, 0.8)
-      .add(new THREE.Vector3(0, 1.1, 0));
+      .multiplyScalar(distance * 0.7)
+      .addScaledVector(tangent, distance * 0.25)
+      .add(new THREE.Vector3(0, distance * 0.3, 0));
     return {
       target: this.currentMoonWorldPosition.clone(),
-      position: this.currentMoonWorldPosition.clone().add(offset.normalize().multiplyScalar(3.4)),
+      position: this.currentMoonWorldPosition.clone().add(offset),
     };
   }
 
