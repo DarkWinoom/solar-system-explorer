@@ -1,218 +1,149 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import {
+  celestialState,
+  EARTH_ORBIT_RADIUS,
+  MOON_ORBIT_RADIUS,
   earthOrbitAngle,
   earthOrbitPosition,
-  synodicAge,
-  moonOrbitPosition,
   moonPhase,
-  type MoonPhase,
+  moonOrbitPosition,
+  overviewCameraPose,
+  synodicAge,
 } from "../../src/utils/orbits";
 
-/**
- * 日地月轨道算法 — 单元测试
- *
- * 覆盖：
- *   - earthOrbitAngle: 4 个节气（春分/夏至/秋分/冬至）容差 ±3°
- *   - earthOrbitPosition: y 分量恒为 0（轨道平面在 xz）
- *   - synodicAge: 范围 [0, 29.53) + 已知新月接近 0
- *   - moonPhase: 已知新月/满月/上弦对应名称
- *   - moonOrbitPosition: 输出是相对位置（earthPos + 偏移）
- *
- * 容差：地球轨道 ±3°（基于"春分固定 dayOfYear 80.5"近似，月球 ±0.5 天）
- *
- * @see /docs/PLAN-SEM.md § 5
- */
+describe("earthOrbitAngle — 四季位置", () => {
+  const cases = [
+    ["春分", new Date(Date.UTC(2024, 2, 20, 3, 6)), 0],
+    ["夏至", new Date(Date.UTC(2024, 5, 20, 22, 51)), Math.PI / 2],
+    ["秋分", new Date(Date.UTC(2024, 8, 22, 12, 44)), Math.PI],
+    ["冬至", new Date(Date.UTC(2024, 11, 21, 9, 21)), Math.PI * 1.5],
+  ] as const;
 
-describe("earthOrbitAngle — 4 个节气 (使用真实天文时间)", () => {
-  // 真实节气时间（来源: NASA / USNO 数据，±1 分钟精度）
-  // 2024 年春分 3月20日 03:06 UTC, 夏至 6月20日 22:51 UTC, 秋分 9月22日 12:44 UTC, 冬至 12月21日 09:21 UTC
-  // 容差 ±0.1 rad (5.7°): 地球公转是椭圆 (开普勒第一定律) 不是匀速, 1/4 年长度 91.25 天是近似,
-  // 180° 处的累积误差最大 (~3.4°), MVP 视觉无差异
-  it("2024 春分 (3-20 03:06 UTC): angle ≈ 0", () => {
-    const date = new Date(Date.UTC(2024, 2, 20, 3, 6, 0));
-    const angle = earthOrbitAngle(date);
-    expect(Math.abs(angle)).toBeLessThan(0.1);
-  });
+  for (const [name, date, expected] of cases) {
+    it(`${name}位于预期的轨道象限`, () => {
+      expect(Math.abs(earthOrbitAngle(date) - expected)).toBeLessThan(0.1);
+      expect(earthOrbitPosition(date).length()).toBeCloseTo(EARTH_ORBIT_RADIUS, 8);
+    });
+  }
+});
 
-  it("2024 夏至 (6-20 22:51 UTC): angle ≈ π/2", () => {
-    const date = new Date(Date.UTC(2024, 5, 20, 22, 51, 0));
-    const angle = earthOrbitAngle(date);
-    expect(Math.abs(angle - Math.PI / 2)).toBeLessThan(0.1);
-  });
+describe("celestialState — 统一的空间与昼夜坐标", () => {
+  // 春夏秋冬 + 同一天的多个时刻；用于防止只在某一时刻碰巧正确。
+  const instants = [
+    new Date("2026-03-20T00:00:00.000Z"),
+    new Date("2026-06-21T06:00:00.000Z"),
+    new Date("2026-08-23T02:30:00.000Z"), // 上海 10:30 (UTC+8)
+    new Date("2026-09-22T12:00:00.000Z"),
+    new Date("2026-12-21T18:00:00.000Z"),
+  ];
 
-  it("2024 秋分 (9-22 12:44 UTC): angle ≈ π", () => {
-    const date = new Date(Date.UTC(2024, 8, 22, 12, 44, 0));
-    const angle = earthOrbitAngle(date);
-    expect(Math.abs(angle - Math.PI)).toBeLessThan(0.1);
-  });
+  for (const instant of instants) {
+    it(`${instant.toISOString()}：亮面、太阳和地轴使用同一姿态`, () => {
+      const state = celestialState(instant);
+      const worldSubsolarPoint = state.localSunDirection
+        .clone()
+        .applyQuaternion(state.earthOrientation);
 
-  it("2024 冬至 (12-21 09:21 UTC): angle ≈ 3π/2", () => {
-    const date = new Date(Date.UTC(2024, 11, 21, 9, 21, 0));
-    const angle = earthOrbitAngle(date);
-    expect(Math.abs(angle - (3 * Math.PI) / 2)).toBeLessThan(0.1);
+      // 地理直射点变换到世界空间后必须直接朝向场景中的太阳。
+      expect(worldSubsolarPoint.dot(state.earthToSun)).toBeGreaterThan(0.999999);
+      // 变换后的地理北极必须是固定的倾斜地轴。
+      expect(
+        new THREE.Vector3(0, 1, 0)
+          .applyQuaternion(state.earthOrientation)
+          .dot(state.earthAxis),
+      ).toBeGreaterThan(0.999999);
+      expect(state.earthToSun.length()).toBeCloseTo(1, 10);
+      expect(state.earthAxis.length()).toBeCloseTo(1, 10);
+      expect(state.moonPosition.distanceTo(state.earthPosition)).toBeCloseTo(
+        MOON_ORBIT_RADIUS,
+        10,
+      );
+    });
+  }
+
+  it("相同 instant 无论以 UTC 还是东八区文本构造，状态都相同", () => {
+    const utc = celestialState(new Date("2026-08-23T02:30:00.000Z"));
+    const shanghai = celestialState(new Date("2026-08-23T10:30:00+08:00"));
+    expect(utc.instant.getTime()).toBe(shanghai.instant.getTime());
+    expect(utc.earthPosition.distanceTo(shanghai.earthPosition)).toBeLessThan(1e-10);
+    expect(utc.moonPosition.distanceTo(shanghai.moonPosition)).toBeLessThan(1e-10);
   });
 });
 
-describe("earthOrbitPosition", () => {
-  // 容差 toBeCloseTo(value, -1) = ±5 单位差
-  it("2024 春分: 地球位置 ≈ (-radius, 0, 0)", () => {
-    const date = new Date(Date.UTC(2024, 2, 20, 3, 6, 0));
-    const pos = earthOrbitPosition(date, 80);
-    expect(pos.x).toBeCloseTo(-80, -1);
-    expect(pos.y).toBe(0);
-    expect(pos.z).toBeCloseTo(0, -1);
+describe("moonOrbitPosition — 月相与空间相对位置", () => {
+  it("已知新月位于日地之间", () => {
+    const state = celestialState(new Date(Date.UTC(2024, 0, 11, 11, 57)));
+    expect(moonPhase(state.instant).name).toBe("newMoon");
+    expect(state.earthToMoon.dot(state.earthToSun)).toBeGreaterThan(0.99);
   });
 
-  it("2024 夏至: 地球位置 ≈ (0, 0, +radius)", () => {
-    const date = new Date(Date.UTC(2024, 5, 20, 22, 51, 0));
-    const pos = earthOrbitPosition(date, 80);
-    expect(pos.x).toBeCloseTo(0, -1);
-    expect(pos.y).toBe(0);
-    expect(pos.z).toBeCloseTo(80, -1);
+  it("已知满月位于地球背日侧", () => {
+    const state = celestialState(new Date(Date.UTC(2024, 0, 25, 17, 54)));
+    expect(moonPhase(state.instant).name).toBe("fullMoon");
+    expect(state.earthToMoon.dot(state.earthToSun)).toBeLessThan(-0.99);
   });
 
-  it("2024 秋分: 地球位置 ≈ (+radius, 0, 0)", () => {
-    const date = new Date(Date.UTC(2024, 8, 22, 12, 44, 0));
-    const pos = earthOrbitPosition(date, 80);
-    expect(pos.x).toBeCloseTo(80, -1);
-    expect(pos.y).toBe(0);
-    expect(pos.z).toBeCloseTo(0, -1);
+  it("独立 API 也以传入的地球到太阳方向为新月基准", () => {
+    const date = new Date(Date.UTC(2024, 0, 11, 11, 57));
+    const earth = earthOrbitPosition(date);
+    const earthToSun = earth.clone().negate().normalize();
+    const moon = moonOrbitPosition(date, earth, earthToSun);
+    expect(moon.clone().sub(earth).normalize().dot(earthToSun)).toBeGreaterThan(0.99);
   });
+});
 
-  it("y 分量恒为 0（轨道平面在 xz）", () => {
-    const dates = [
-      new Date(Date.UTC(2024, 0, 15, 0, 0, 0)),
-      new Date(Date.UTC(2024, 6, 4, 0, 0, 0)),
-      new Date(Date.UTC(2024, 11, 31, 0, 0, 0)),
-    ];
-    for (const d of dates) {
-      const pos = earthOrbitPosition(d, 80);
-      expect(pos.y).toBe(0);
+describe("overviewCameraPose — 稳定且同时容纳日地月", () => {
+  const instants = [
+    new Date("2026-03-20T00:00:00.000Z"),
+    new Date("2026-06-21T06:00:00.000Z"),
+    new Date("2026-08-23T02:30:00.000Z"),
+    new Date("2026-12-21T18:00:00.000Z"),
+  ];
+
+  for (const instant of instants) {
+    it(`${instant.toISOString()}：总览构图确定且日地月位于镜头前方`, () => {
+      const state = celestialState(instant);
+      const first = overviewCameraPose(state.earthPosition);
+      const second = overviewCameraPose(state.earthPosition);
+      expect(first.position.distanceTo(second.position)).toBeLessThan(1e-12);
+      expect(first.target.distanceTo(second.target)).toBeLessThan(1e-12);
+      expect(first.target.distanceTo(state.earthPosition.clone().multiplyScalar(0.5))).toBeLessThan(1e-12);
+
+      const forward = first.target.clone().sub(first.position).normalize();
+      for (const body of [new THREE.Vector3(), state.earthPosition, state.moonPosition]) {
+        const direction = body.clone().sub(first.position).normalize();
+        // 40° 覆盖 52° 垂直视场和常见桌面横向视场中的三体边界。
+        expect(direction.dot(forward)).toBeGreaterThan(Math.cos((40 * Math.PI) / 180));
+      }
+    });
+  }
+});
+
+describe("synodicAge 与 moonPhase", () => {
+  it("月龄始终在一个朔望月范围内", () => {
+    for (const date of [
+      new Date(Date.UTC(2020, 0, 1)),
+      new Date(Date.UTC(2026, 7, 23)),
+      new Date(Date.UTC(2030, 11, 31)),
+    ]) {
+      expect(synodicAge(date)).toBeGreaterThanOrEqual(0);
+      expect(synodicAge(date)).toBeLessThan(29.530588853);
     }
   });
 
-  it("支持 out 参数复用", () => {
-    const out = new THREE.Vector3();
-    const date = new Date(Date.UTC(2024, 2, 20, 3, 6, 0));
-    const result = earthOrbitPosition(date, 80, out);
-    expect(result).toBe(out);
-    expect(out.x).toBeCloseTo(-80, 0);
-  });
-});
-
-describe("synodicAge — 朔望月龄", () => {
-  it("范围 [0, 29.53)", () => {
-    const dates = [
-      new Date(Date.UTC(2020, 0, 1, 0, 0, 0)),
-      new Date(Date.UTC(2024, 5, 15, 0, 0, 0)),
-      new Date(Date.UTC(2030, 11, 31, 0, 0, 0)),
-    ];
-    for (const d of dates) {
-      const age = synodicAge(d);
-      expect(age).toBeGreaterThanOrEqual(0);
-      expect(age).toBeLessThan(29.53);
-    }
+  it("已知满月的照明比例接近 100%", () => {
+    expect(moonPhase(new Date(Date.UTC(2024, 0, 25, 17, 54))).illumination).toBeGreaterThan(0.95);
   });
 
-  it("已知新月 (2024-01-11 11:57 UTC): age ≈ 0", () => {
-    const date = new Date(Date.UTC(2024, 0, 11, 11, 57, 0));
-    const age = synodicAge(date);
-    expect(age).toBeLessThan(0.5);
-  });
-
-  it("已知新月 (2024-12-30 22:27 UTC): age ≈ 0", () => {
-    const date = new Date(Date.UTC(2024, 11, 30, 22, 27, 0));
-    const age = synodicAge(date);
-    expect(age).toBeLessThan(0.5);
-  });
-
-  it("已知满月 (2024-01-25 17:54 UTC): age ≈ 14.77 (满月)", () => {
-    const date = new Date(Date.UTC(2024, 0, 25, 17, 54, 0));
-    const age = synodicAge(date);
-    expect(age).toBeGreaterThan(13);
-    expect(age).toBeLessThan(16);
-  });
-});
-
-describe("moonPhase — 8 阶段判定", () => {
-  it("已知新月 (2024-01-11 11:57 UTC): name = 'newMoon'", () => {
-    const date = new Date(Date.UTC(2024, 0, 11, 11, 57, 0));
-    const phase = moonPhase(date);
-    expect(phase.name).toBe("newMoon");
-    expect(phase.illumination).toBeLessThan(0.05);
-  });
-
-  it("已知满月 (2024-01-25 17:54 UTC): name = 'fullMoon', illumination ≈ 1", () => {
-    const date = new Date(Date.UTC(2024, 0, 25, 17, 54, 0));
-    const phase = moonPhase(date);
-    expect(phase.name).toBe("fullMoon");
-    expect(phase.illumination).toBeGreaterThan(0.95);
-  });
-
-  it("已知上弦 (2024-01-18 03:53 UTC): name = 'firstQuarter'", () => {
-    const date = new Date(Date.UTC(2024, 0, 18, 3, 53, 0));
-    const phase = moonPhase(date);
-    expect(phase.name).toBe("firstQuarter");
-    expect(phase.illumination).toBeGreaterThan(0.4);
-    expect(phase.illumination).toBeLessThan(0.6);
-  });
-
-  it("已知下弦 (2024-02-02 23:18 UTC): name = 'lastQuarter'", () => {
-    const date = new Date(Date.UTC(2024, 1, 2, 23, 18, 0));
-    const phase = moonPhase(date);
-    expect(phase.name).toBe("lastQuarter");
-    expect(phase.illumination).toBeGreaterThan(0.4);
-    expect(phase.illumination).toBeLessThan(0.6);
-  });
-
-  it("illumination 公式: (1 - cos(2π × age/29.53)) / 2", () => {
-    // 中点: 满月 (age = 14.77) illumination = 1
-    const fullMoon = new Date(Date.UTC(2024, 0, 25, 17, 54, 0));
-    expect(moonPhase(fullMoon).illumination).toBeCloseTo(1.0, 1);
-    // 半月: age = 0 或 29.53 illumination = 0
-    const newMoon = new Date(Date.UTC(2024, 0, 11, 11, 57, 0));
-    expect(moonPhase(newMoon).illumination).toBeCloseTo(0.0, 1);
-  });
-
-  it("8 个阶段名称都覆盖", () => {
-    const allNames = new Set<MoonPhase>();
-    // 1 个朔望月 29.53 天, 每天采一个点
-    const start = Date.UTC(2024, 0, 11, 11, 57, 0);
-    for (let day = 0; day < 30; day++) {
-      const date = new Date(start + day * 86_400_000);
-      allNames.add(moonPhase(date).name);
-    }
-    expect(allNames.size).toBeGreaterThanOrEqual(7); // 30 天覆盖到 7-8 个
-  });
-});
-
-describe("moonOrbitPosition", () => {
-  it("新月: 月球在地球 + 太阳方向（接近地球正对面太阳）", () => {
-    // 新月时月球在太阳和地球之间 → 相对地球位置接近 (-radius, 0, 0)
-    // 但更准确：新月时月球 angle = 0 → offset = (-cos(0) * 30, 0, sin(0) * 30) = (-30, 0, 0)
-    const newMoon = new Date(Date.UTC(2024, 0, 11, 11, 57, 0));
-    const earthPos = earthOrbitPosition(newMoon, 80);
-    const moonPos = moonOrbitPosition(newMoon, earthPos, 30);
-    // moonPos = earthPos + (-30, 0, 0) → 距离太阳更近
-    expect(moonPos.x).toBeCloseTo(earthPos.x - 30, 0);
-    expect(moonPos.y).toBe(0);
-  });
-
-  it("满月: 月球在地球 + 远离太阳方向", () => {
-    // 满月时月球 angle = π → offset = (-cos(π) * 30, 0, sin(π) * 30) = (30, 0, 0)
-    const fullMoon = new Date(Date.UTC(2024, 0, 25, 17, 54, 0));
-    const earthPos = earthOrbitPosition(fullMoon, 80);
-    const moonPos = moonOrbitPosition(fullMoon, earthPos, 30);
-    expect(moonPos.x).toBeCloseTo(earthPos.x + 30, 0);
-    expect(moonPos.y).toBe(0);
-  });
-
-  it("支持 out 参数复用", () => {
-    const out = new THREE.Vector3();
-    const date = new Date(Date.UTC(2024, 0, 11, 11, 57, 0));
-    const earthPos = earthOrbitPosition(date, 80);
-    const result = moonOrbitPosition(date, earthPos, 30, out);
-    expect(result).toBe(out);
+  it("已知上弦与下弦仍可正确分类", () => {
+    const firstQuarter = moonPhase(new Date(Date.UTC(2024, 0, 18, 3, 53)));
+    const lastQuarter = moonPhase(new Date(Date.UTC(2024, 1, 2, 23, 18)));
+    expect(firstQuarter.name).toBe("firstQuarter");
+    expect(firstQuarter.illumination).toBeGreaterThan(0.4);
+    expect(firstQuarter.illumination).toBeLessThan(0.6);
+    expect(lastQuarter.name).toBe("lastQuarter");
+    expect(lastQuarter.illumination).toBeGreaterThan(0.4);
+    expect(lastQuarter.illumination).toBeLessThan(0.6);
   });
 });

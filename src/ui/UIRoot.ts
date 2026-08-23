@@ -1,31 +1,30 @@
 import { TopBar } from "./TopBar";
 import { InfoCard } from "./InfoCard";
 import { HelpHint } from "./HelpHint";
-import { RecenterState } from "./RecenterButton";
-import { RecenterButtonView } from "./RecenterButtonView";
-import type { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { ViewModeTabs, type ViewMode } from "./ViewModeTabs";
 
 /**
  * UIRoot — UI 组合根
  *
  * 装配:
  *   - TopBar          顶栏(标题 + LocaleSwitcher)
+ *   - ViewModeTabs    顶栏下方居中 tabs(总览/只看地球), 阶段 18 新增, 替代 RecenterButton
  *   - InfoCard        左下角信息卡
  *   - HelpHint        右下角操作提示
- *   - RecenterButton  主场景下方(用户操作 OrbitControls 后淡入)
  *
- * OrbitControls 集成:
- *   - 'start' 事件 → RecenterState.onUserInteraction()
- *   - 点击按钮 → 触发 onRecenter 回调(相机 tween 回原视角)
+ * ViewModeTabs 集成:
+ *   - 点击 tab → 触发 onViewModeChange(mode) 回调
+ *   - UIRoot 不再监听 OrbitControls 'start' 事件(原 RecenterButton 逻辑已删除)
  *
  * @contract
- *   - `mount(controls?)` 挂载 UI + 绑定 OrbitControls 'start' 事件
+ *   - `mount()` 挂载所有 UI 组件到指定 parent (默认 document.body)
  *   - `unmount()` 移除 DOM + 释放所有组件
- *   - `infoCard` 暴露给 caller(阶段 11 接 setLocation)
+ *   - `infoCard` 暴露给 caller (阶段 11 接 setLocation, 阶段 18 接 setMoonPhase / setOrbitPosition)
+ *   - `viewModeTabs` 暴露给 caller (供阶段 18d app.ts 调 setMode)
  */
 export interface UIRootOptions {
-  controls?: OrbitControls | null;
-  onRecenter?: () => void;
+  /** 视图模式变化回调 (用户点击 ViewModeTabs 触发) */
+  onViewModeChange?: (mode: ViewMode) => void;
 }
 
 export class UIRoot {
@@ -33,10 +32,7 @@ export class UIRoot {
   readonly infoCard: InfoCard;
   readonly topBar: TopBar;
   readonly helpHint: HelpHint;
-  private readonly recenterState: RecenterState | null = null;
-  private readonly recenterView: RecenterButtonView | null = null;
-  private controls: OrbitControls | null = null;
-  private onStart: (() => void) | null = null;
+  readonly viewModeTabs: ViewModeTabs | null = null;
   private mounted: boolean = false;
 
   constructor(options: UIRootOptions = {}) {
@@ -56,13 +52,17 @@ export class UIRoot {
     this.infoCard = new InfoCard();
     this.helpHint = new HelpHint();
 
-    if (options.controls) {
-      this.controls = options.controls;
-      this.recenterState = new RecenterState({
-        onRecenter: options.onRecenter ?? (() => {}),
-        autoHideMs: 3000,
+    if (options.onViewModeChange) {
+      this.viewModeTabs = new ViewModeTabs({
+        onModeChange: options.onViewModeChange,
+        initial: "overview", // v19b 调整: 默认显示"总览视角"(看到整个日地月系统)
       });
-      this.recenterView = new RecenterButtonView(this.recenterState);
+      // 定位: TopBar 下方居中 (top: 68px, TopBar padding 12px + 12px gap)
+      this.viewModeTabs.element.style.position = "absolute";
+      this.viewModeTabs.element.style.top = "68px";
+      this.viewModeTabs.element.style.left = "50%";
+      this.viewModeTabs.element.style.transform = "translateX(-50%)";
+      this.viewModeTabs.element.style.zIndex = "9";
     }
   }
 
@@ -74,13 +74,8 @@ export class UIRoot {
     this.infoCard.mount(this.element);
     this.helpHint.mount(this.element);
 
-    if (this.recenterView) {
-      this.recenterView.mount(this.element);
-    }
-
-    if (this.controls && this.recenterState) {
-      this.onStart = () => this.recenterState!.onUserInteraction();
-      this.controls.addEventListener("start", this.onStart);
+    if (this.viewModeTabs) {
+      this.viewModeTabs.mount(this.element);
     }
 
     this.mounted = true;
@@ -89,16 +84,10 @@ export class UIRoot {
   unmount(): void {
     if (!this.mounted) return;
 
-    if (this.controls && this.onStart) {
-      this.controls.removeEventListener("start", this.onStart);
-      this.onStart = null;
-    }
-
     this.topBar.unmount();
     this.infoCard.unmount();
     this.helpHint.unmount();
-    this.recenterView?.unmount();
-    this.recenterState?.dispose();
+    this.viewModeTabs?.unmount();
 
     if (this.element.parentNode) {
       this.element.parentNode.removeChild(this.element);
@@ -106,3 +95,4 @@ export class UIRoot {
     this.mounted = false;
   }
 }
+

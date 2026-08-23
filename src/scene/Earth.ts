@@ -83,6 +83,8 @@ export class Earth {
   private virtualElapsed: number = 0;
   /** TSL uniform vec3 — 太阳相对地球的方向（从地球指向太阳） */
   private readonly uSunDir;
+  /** 总览模式的非物理展示补光；地球视角保持 0，避免冲淡真实昼夜。 */
+  private readonly uOverviewFill;
 
   constructor(options: EarthOptions = {}) {
     this.radius = options.radius ?? 1.0;
@@ -97,19 +99,36 @@ export class Earth {
 
     // --- 太阳方向 uniform（TSL vec3） — 初始朝 +Z, 之后 EarthScene 调 setSunDirection 实时更新 ---
     this.uSunDir = uniform(new THREE.Vector3(0, 0, 1));
+    this.uOverviewFill = uniform(0);
 
     // --- 加载 3 张官方 4096 纹理 ---
     const textureLoader = new THREE.TextureLoader();
     const dayTexture = textureLoader.load(dayTextureUrl);
     dayTexture.colorSpace = THREE.SRGBColorSpace;
     dayTexture.anisotropy = 8;
+    // v19g 修复: NASA Blue Marble 纹理 u=0 是 180°W (dateline), u=0.5 是 0° (本初),
+    //   但 v19g latLon 公式下 latLon(0, 0) 渲染到 Three.js -X 半球 (u=0 位置)
+    //   跟"地理 0° (本初)" 语义错位 180°。修法: texture.offset.x = 0.5 旋转 NASA 纹理
+    //   让 u=0 = 0° (本初), u=0.5 = 180° (dateline), 跟 latLon 公式对齐。
+    //   不动 latLon 公式, 不动昼夜逻辑, 只旋转纹理贴图位置。
+    //   用户报告: "上海 (latLon 0, 121) 渲染到北美偏东部 (差 180°)" — 这就是根因。
+    dayTexture.offset.x = 0.5;
+    // offset 会把 u=0.5~1 映射到 1~1.5；默认 ClampToEdgeWrapping 会让
+    // 后半球永久采样最右一列像素。经度纹理必须在水平方向循环。
+    dayTexture.wrapS = THREE.RepeatWrapping;
 
     const nightTexture = textureLoader.load(nightTextureUrl);
     nightTexture.colorSpace = THREE.SRGBColorSpace;
     nightTexture.anisotropy = 8;
+    // 夜面纹理也旋转 180° 保持跟 dayTexture 一致(否则月相/夜面大陆位置反)
+    nightTexture.offset.x = 0.5;
+    nightTexture.wrapS = THREE.RepeatWrapping;
 
     const bumpRoughnessCloudsTexture = textureLoader.load(bumpTextureUrl);
     bumpRoughnessCloudsTexture.anisotropy = 8;
+    // bump map 也旋转 180° 保持跟 dayTexture 一致(否则山脉凹凸位置反)
+    bumpRoughnessCloudsTexture.offset.x = 0.5;
+    bumpRoughnessCloudsTexture.wrapS = THREE.RepeatWrapping;
 
     // --- 核心 TSL 节点（完全照抄官方示例） ---
 
@@ -155,11 +174,30 @@ export class Earth {
     //   b) 上面结果 vs 大气颜色（按 atmosphereMix 混合, 让地球朝光侧边缘有一圈暖橙光）
     //   c) 跟官方 webgpu_tsl_earth.html 完全一致（外层 BackSide atmosphere + 表面 atmosphereMix 双层）
     const night = texture(nightTexture);
-    const dayStrength = sunOrientation.smoothstep(-0.25, 0.5);
-    const atmosphereDayStrength = sunOrientation.smoothstep(-0.5, 1);
+    // 修复 v19i-3: dayStrength 范围 [0, 0.2] — 朝阳面 >0.2 就 100% day, 晨昏线只占 0~0.2 窄带
+    const dayStrength = sunOrientation.smoothstep(0, 0.2);
+    const atmosphereDayStrength = sunOrientation.smoothstep(-0.25, 0.5);
     const atmosphereMix = atmosphereDayStrength.mul(fresnel.pow(2)).clamp(0, 1);
-    let finalOutput = mix(night.rgb, output.rgb, dayStrength);
+    // 修复 v19i-2: PBR output.rgb 在 forceWebGL backend 下输出≈黑色
+    //   改用 texture(dayTexture) 直接采样作为 day side 颜色, 跳过 PBR 受光计算
+    // 修复 v19i-3: dayStrength 区间 [-0.25, 0.5] 太宽, 朝阳面 0.3~0.5 区域 dayStrength<1
+    //   → night texture 城市灯光在朝阳面 30%+ 渗出, 视觉上"朝阳面是夜面"
+    //   改用 [0, 0.2] 缩窄到朝阳面 0.2 以上就 100% 是白天, 晨昏线只占 0~0.2 窄区
+    // 修复 v19i-4: 云丢失 — 把 cloud mix (vec3(1) 偏白) 加到 dayColor 上, 跟原 colorNode 一致
+    //   修复后: 朝阳面 = dayTexture(白偏云) + 蓝天 + 海洋; 夜面 = night texture (城市灯光)
+    //   晨昏线 = 快速从 day 过渡到 night, atmosphere twilight 暖橙覆盖边缘
+    const dayColor = mix(texture(dayTexture), vec3(1), cloudsStrength.mul(2));
+    // 总览模式只给暗面极低的蓝色基底和边缘泛光，保留黑色宇宙背景以及昼夜对比。
+    const nightColor = night.rgb.add(
+      vec3(0.012, 0.03, 0.08).mul(this.uOverviewFill),
+    );
+    let finalOutput = mix(nightColor, dayColor.rgb, dayStrength);
     finalOutput = mix(finalOutput, atmosphereColor, atmosphereMix);
+    finalOutput = finalOutput.add(
+      vec3(0.03, 0.12, 0.3)
+        .mul(fresnel.pow(3))
+        .mul(this.uOverviewFill),
+    );
     this.material.outputNode = vec4(finalOutput, output.a);
 
     // 5) 法线：bumpMap 从整合图的红通道（bump 高度）算
@@ -185,6 +223,11 @@ export class Earth {
   setSunDirection(direction: THREE.Vector3): void {
     // TSL uniform 的 .value 是 THREE.Vector3, 直接覆盖
     this.uSunDir.value.copy(direction);
+  }
+
+  /** 仅总览开启克制的暗面可读性增强；不改变太阳方向或物理昼夜判定。 */
+  setOverviewMode(enabled: boolean): void {
+    this.uOverviewFill.value = enabled ? 1 : 0;
   }
 
   /**

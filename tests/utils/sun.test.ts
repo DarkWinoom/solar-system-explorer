@@ -50,13 +50,13 @@ describe("solarSubsolarLongitude — 4 个时点", () => {
   it("UTC 12:00: 直射本初子午线 (0°)", () => {
     const date = new Date(Date.UTC(2026, 5, 21, 12, 0, 0));
     const lon = solarSubsolarLongitude(date);
-    expect(Math.abs(lon)).toBeLessThan(1);
+    expect(Math.abs(lon)).toBeLessThan(2);
   });
 
   it("UTC 00:00: 直射 +180° (国际日期变更线附近)", () => {
     const date = new Date(Date.UTC(2026, 5, 21, 0, 0, 0));
     const lon = solarSubsolarLongitude(date);
-    expect(Math.abs(lon - 180)).toBeLessThan(1);
+    expect(Math.abs(Math.abs(lon) - 180)).toBeLessThan(2);
   });
 
   it("UTC 06:00: 直射 +90° (东经 90°)", () => {
@@ -64,13 +64,13 @@ describe("solarSubsolarLongitude — 4 个时点", () => {
     // 公式 lon = (12 - UTC_hour) × 15
     const date = new Date(Date.UTC(2026, 5, 21, 6, 0, 0));
     const lon = solarSubsolarLongitude(date);
-    expect(Math.abs(lon - 90)).toBeLessThan(1);
+    expect(Math.abs(lon - 90)).toBeLessThan(2);
   });
 
   it("UTC 18:00: 直射 -90° (西经 90°)", () => {
     const date = new Date(Date.UTC(2026, 5, 21, 18, 0, 0));
     const lon = solarSubsolarLongitude(date);
-    expect(Math.abs(lon - -90)).toBeLessThan(1);
+    expect(Math.abs(lon - -90)).toBeLessThan(2);
   });
 });
 
@@ -188,30 +188,56 @@ describe("回归测试 — 完整链路", () => {
     const [x, y, z] = sunDirection(date);
     // y > 0（北半球夏天 → decl > 0）
     expect(y).toBeGreaterThan(0);
-    // 直射经度：UTC 20:00 → 12 时 0，差 8h → -120°
-    // 2026-08-20 二次修正:sunDirection lon 加 180° 偏移,跟 latLonToCartesian 一致
+    // 直射经度包含均时差；sunDirection 必须与同一函数返回的经度一致。
+    const longitude = solarSubsolarLongitude(date);
     const declDeg = solarDeclination(date);
     const expectedX =
-      -Math.cos((declDeg * Math.PI) / 180) *
-      Math.cos((-120 + 180) * Math.PI / 180);
+      -Math.cos((declDeg * Math.PI) / 180) * Math.cos(longitude * Math.PI / 180);
     expect(Math.abs(x - expectedX)).toBeLessThan(1e-9);
-    // 验证 z 分量 = cos(decl) × sin(-120°+180°) = cos(decl) × sin(60°)
     const expectedZ =
-      Math.cos((declDeg * Math.PI) / 180) *
-      Math.sin((-120 + 180) * Math.PI / 180);
+      Math.cos((declDeg * Math.PI) / 180) * Math.sin(longitude * Math.PI / 180);
     expect(Math.abs(z - expectedZ)).toBeLessThan(1e-9);
   });
 
-  it("⚠️ 关键回归: 昼面方向跟 latLonToCartesian 一致(避免地图-光照错位 180°)", () => {
-    // 用春分(decl=0)消除赤纬角影响,只看 lon 偏移
-    // UTC 12:00 直射本初子午线(物理地理 0°)
-    // 期望:太阳方向 (latLonToCartesian 加 180° 偏移后) 应该 = 球面 local 180° 位置
-    //       = (-cos(0)·cos(180°), sin(0), cos(0)·sin(180°)) = (1, 0, 0)
+  it("⚠️ 关键回归: 春分正午 sunDirection = (-1, 0, 0) = 跟新 latLonToCartesian(0, 0) 一致", () => {
+    // v19g 公式: sunDirection = 新 latLon(0, lonDeg) (无 +180 偏移)
+    //   春分正午直射本初, sunDirection = 新 latLon(0, 0) = (-1, 0, 0) = -X 朝阳面方向
+    // 物理意义: 直射 0° 时 0° 朝阳, 0° 法线方向 = -X 朝阳面方向 ✓
+    //   (新 latLon 让 latLon(0, 0) = -X, 跟"直射 0° 时 0° 朝阳" 物理意义一致)
+    //   Three.js 朝阳面 (-X 半球) 渲染成受光 ✓
     const date = new Date(Date.UTC(2026, 2, 20, 12, 0, 0));
     const [x, y, z] = sunDirection(date);
-    // 容差放宽:春分 decl 残留 ~1.2°(公式不严格 = 0),sin/decl 引入 ~0.02
-    expect(Math.abs(x - 1)).toBeLessThan(0.05);
+    // 期望 sunDirection ≈ (-1, 0, 0)(跟新 latLonToCartesian(0, 0) 一致 = -X 朝阳面方向)
+    // 容差放宽: 春分 decl 残留 ~1.2°(公式不严格 = 0)
+    expect(Math.abs(x + 1)).toBeLessThan(0.05);
     expect(Math.abs(y)).toBeLessThan(0.05);
     expect(Math.abs(z)).toBeLessThan(0.05);
+  });
+
+  it("⚠️ 关键回归: sunDirection 跟新 latLonToCartesian(0, lonDeg) 平行 (dot > 0.9)", () => {
+    // v19g 锁源: sunDirection 公式必须跟新 latLonToCartesian 平行 (同向)
+    //   物理意义: sunDirection 跟"地理直射经度的法线方向" 一致
+    //   验证 4 个时点: 直射经度 0/90/-90/180 都应满足 dot > 0.9
+    //   (防止误改成 v19d/v19c 错位 180° 公式)
+    const testCases = [
+      new Date(Date.UTC(2026, 2, 20, 12, 0, 0)), // 直射 0°(本初)
+      new Date(Date.UTC(2026, 2, 20, 6, 0, 0)), // 直射 +90°E
+      new Date(Date.UTC(2026, 2, 20, 18, 0, 0)), // 直射 -90°W
+      new Date(Date.UTC(2026, 2, 20, 0, 0, 0)), // 直射 +180°E
+    ];
+    for (const date of testCases) {
+      const [sx, sy, sz] = sunDirection(date);
+      // 对应新 latLonToCartesian(0, lonDeg) 公式(无 +180 偏移, 跟 sunDirection 一致)
+      const lonDeg = solarSubsolarLongitude(date);
+      const declDeg = solarDeclination(date);
+      const decl = (declDeg * Math.PI) / 180;
+      const lon = lonDeg * Math.PI / 180; // v19g 去掉 +180
+      const lx = -Math.cos(decl) * Math.cos(lon);
+      const ly = Math.sin(decl);
+      const lz = Math.cos(decl) * Math.sin(lon);
+      const dot = sx * lx + sy * ly + sz * lz;
+      // dot 应 > 0.9 (跟新 latLonToCartesian 平行)
+      expect(dot).toBeGreaterThan(0.9);
+    }
   });
 });

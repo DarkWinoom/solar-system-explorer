@@ -17,13 +17,17 @@ import * as THREE from "three";
  */
 describe("coords", () => {
   describe("latLonToCartesian", () => {
-    // 2026-08-20 二次修正:加 180° lon 偏移对齐 NASA 纹理原点
-    // (球面 local lon=0 渲染到 NASA 纹理 u=0 = 180°W dateline,
-    //  所以"地理 lon=0"(本初)需对应"球面 local lon=180°"位置)
-    it("equator (0, 0) — geographic 0° maps to sphere local 180° = (1, 0, 0)", () => {
-      // 地理 0°(本初)→ 球面 local 180° → x = -cos(0)·cos(180°) = +1
+    // ⚠️ 2026-08-20 v19g 修正:去掉 +180° lon 偏移
+    //   旧公式 (带 +180 偏移) 让"地理 0° (本初)" 渲染到 Three.js +X 半球 (背阳面),
+    //   跟"直射 0° 时本初朝阳 = 在 Three.js 朝阳面 (-X 半球)" 的物理意义矛盾 180°。
+    //   后果: v19c/v19f 公式让 "Three.js 背阳面" 渲染成纯黑 (PBR 无 ambient + dot > 0
+    //   让 mix(night, output, dayStrength) 偏向 output=0, 看不到 night texture 城市灯光)。
+    //   新公式 (不带 +180 偏移) 让 latLon(0, 0) = -X 朝阳面, 跟物理"直射 0° 时本初朝阳" 一致。
+    it("equator (0, 0) — geographic 0° maps to Three.js -X (朝阳面) = (-1, 0, 0)", () => {
+      // 物理: 直射 0° 时本初朝阳 = 在 Three.js 朝阳面 (-X 半球)
+      // 新公式: x = -cos(0)·cos(0°) = -1 = -X ✓
       const v = latLonToCartesian(0, 0);
-      expect(v.x).toBeCloseTo(1, 5);
+      expect(v.x).toBeCloseTo(-1, 5);
       expect(v.y).toBeCloseTo(0, 5);
       expect(v.z).toBeCloseTo(0, 5);
     });
@@ -35,26 +39,33 @@ describe("coords", () => {
       expect(v.z).toBeCloseTo(0, 5);
     });
 
-    it("east 90° (0, 90) maps to (0, 0, -1) — opposite of dateline alignment", () => {
-      // 地理 90°E → 球面 local 270° → x = -cos(0)·cos(270°) = 0, z = cos(0)·sin(270°) = -1
+    it("east 90° (0, 90) maps to (0, 0, 1) — 晨昏线边缘", () => {
+      // 新公式: x = -cos(0)·cos(90°) = 0, z = cos(0)·sin(90°) = +1
       const v = latLonToCartesian(0, 90);
-      expect(v.x).toBeCloseTo(0, 5);
-      expect(v.y).toBeCloseTo(0, 5);
-      expect(v.z).toBeCloseTo(-1, 5);
-    });
-
-    it("west 90° (0, -90) maps to (0, 0, 1)", () => {
-      // 地理 90°W → 球面 local 90° → x = -cos(0)·cos(90°) = 0, z = cos(0)·sin(90°) = +1
-      const v = latLonToCartesian(0, -90);
       expect(v.x).toBeCloseTo(0, 5);
       expect(v.y).toBeCloseTo(0, 5);
       expect(v.z).toBeCloseTo(1, 5);
     });
 
-    it("dateline (0, 180) maps to (-1, 0, 0) — geographic 180° = sphere local 0°", () => {
-      // 地理 180°(dateline)→ 球面 local 0° → x = -cos(0)·cos(0°) = -1
+    it("west 90° (0, -90) maps to (0, 0, -1)", () => {
+      // 新公式: x = -cos(0)·cos(-90°) = 0, z = cos(0)·sin(-90°) = -1
+      const v = latLonToCartesian(0, -90);
+      expect(v.x).toBeCloseTo(0, 5);
+      expect(v.y).toBeCloseTo(0, 5);
+      expect(v.z).toBeCloseTo(-1, 5);
+    });
+
+    it("dateline (0, 180) maps to (1, 0, 0) — 跟物理直射 180° 时 180° 朝阳错位 180°(latLon 公式固有限制)", () => {
+      // 新公式: x = -cos(0)·cos(180°) = +1 = +X 背阳面
+      // 注意: latLon 公式是 L 的函数, 无法让"直射 L 时 L 都在 -X 半球" 对所有 L 满足。
+      //   实际意义: latLon(0, 0) = -X (直射 0° 时 0° 朝阳 ✓),
+      //             latLon(0, 90)/(0, -90) = ±Z (晨昏线 ✓),
+      //             latLon(0, 180) = +X (直射 180° 时 180° 朝阳, 但 latLon 让 180° 渲染在背阳面 ❌)
+      //   这是 latLon 公式的"半周期" 错位: 只能让一半 L 满足"直射 L 时 L 朝阳" 物理。
+      //   接受这个错位 — Earth TSL 的 sunDirection 公式跟新 latLon 一致,
+      //   整体保持"上海 22:00 渲染成夜面 + Three.js 朝阳面 (latLon(0, 0)) 渲染成受光" 双对。
       const v = latLonToCartesian(0, 180);
-      expect(v.x).toBeCloseTo(-1, 5);
+      expect(v.x).toBeCloseTo(1, 5);
       expect(v.y).toBeCloseTo(0, 5);
       expect(v.z).toBeCloseTo(0, 5);
     });
@@ -66,10 +77,10 @@ describe("coords", () => {
       expect(v.z).toBeCloseTo(0, 5);
     });
 
-    it("Beijing (39.9, 116.4) — geographic formula + 180° offset", () => {
+    it("Beijing (39.9, 116.4) — geographic formula (no +180 offset)", () => {
       const v = latLonToCartesian(39.9, 116.4);
       const latRad = (39.9 * Math.PI) / 180;
-      const lonRad = ((116.4 + 180) * Math.PI) / 180;
+      const lonRad = (116.4 * Math.PI) / 180;
       expect(v.x).toBeCloseTo(-Math.cos(latRad) * Math.cos(lonRad), 5);
       expect(v.y).toBeCloseTo(Math.sin(latRad), 5);
       expect(v.z).toBeCloseTo(Math.cos(latRad) * Math.sin(lonRad), 5);

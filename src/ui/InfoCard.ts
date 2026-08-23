@@ -2,19 +2,24 @@ import { i18n } from "../i18n";
 import { i18nKeys } from "./i18nKeys";
 import { formatLocalTime, formatCountdown } from "./format";
 import { calcSunTimes, solarDeclination } from "../utils/sun";
+import type { MoonPhase } from "../utils/orbits";
 
 /**
  * InfoCard — 左下角信息卡
  *
- * 3 行布局(每行 = label 小字 + value 主字):
+ * 5 行布局(每行 = label 小字 + value 主字):
  *   1. 时区(Intl.DateTimeFormat().resolvedOptions().timeZone)
  *   2. 时间(formatLocalTime,每秒更新)
  *   3. 日出日落倒计时(calcSunTimes(0, 0, date, tz_offset),阶段 11 接真实经纬度)
+ *   4. 月相(阶段 18 接入:moonPhase(date).name + .illumination)
+ *   5. 公转位置(阶段 18 接入:earthOrbitAngle 推到 dayOfYear 1-365)
  *
  * @contract
  *   - `mount(parent)` 挂载 + 启动 1s tick
  *   - `unmount()` 清除 tick + 取消 i18n 订阅
  *   - `setLocation(lat, lon)` 阶段 11 接入真实经纬度
+ *   - `setMoonPhase(name, illumination)` 阶段 18 接入, 默认显示 "—"
+ *   - `setOrbitPosition(dayOfYear, totalDays)` 阶段 18 接入, 默认显示 "—"
  *   - locale 切换时所有 i18n label 自动更新
  */
 export class InfoCard {
@@ -25,6 +30,12 @@ export class InfoCard {
   private readonly timeValueEl: HTMLDivElement;
   private readonly sunLabelEl: HTMLDivElement;
   private readonly sunValueEl: HTMLDivElement;
+  private readonly moonLabelEl: HTMLDivElement;
+  private readonly moonValueEl: HTMLDivElement;
+  private readonly orbitLabelEl: HTMLDivElement;
+  private readonly orbitValueEl: HTMLDivElement;
+  private readonly sunDividerEl: HTMLDivElement;
+  private readonly orbitDividerEl: HTMLDivElement;
   private unsubI18n: (() => void) | null = null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private mounted: boolean = false;
@@ -40,6 +51,16 @@ export class InfoCard {
    * 重要:不能用用户本机时区!IP 所在地 ≠ 电脑时区(VPN / 出差常见)
    */
   private utcOffset: number | null = null;
+  /**
+   * 月相 — 默认 null (显示 "—"), 由 setMoonPhase 设置
+   */
+  private moonPhaseName: MoonPhase | null = null;
+  private moonIllumination: number = 0;
+  /**
+   * 公转位置 — 默认 null (显示 "—"), 由 setOrbitPosition 设置
+   */
+  private orbitDayOfYear: number | null = null;
+  private orbitTotalDays: number = 365;
 
   constructor() {
     this.element = document.createElement("div");
@@ -79,12 +100,36 @@ export class InfoCard {
     this.sunValueEl.style.fontSize = "13px";
     this.sunValueEl.style.color = "#4db2ff";
 
+    // 分隔线 (行 3 后)
+    this.sunDividerEl = this.makeDivider();
+
+    // 行 4:月相
+    this.moonLabelEl = this.makeLabel();
+    this.moonValueEl = this.makeValue();
+    this.moonValueEl.setAttribute("data-testid", "info-card-moon-value");
+    this.moonValueEl.style.fontSize = "13px";
+
+    // 分隔线 (行 4 后)
+    this.orbitDividerEl = this.makeDivider();
+
+    // 行 5:公转位置
+    this.orbitLabelEl = this.makeLabel();
+    this.orbitValueEl = this.makeValue();
+    this.orbitValueEl.setAttribute("data-testid", "info-card-orbit-value");
+    this.orbitValueEl.style.fontSize = "13px";
+
     this.element.appendChild(this.tzLabelEl);
     this.element.appendChild(this.tzValueEl);
     this.element.appendChild(this.timeLabelEl);
     this.element.appendChild(this.timeValueEl);
     this.element.appendChild(this.sunLabelEl);
     this.element.appendChild(this.sunValueEl);
+    this.element.appendChild(this.sunDividerEl);
+    this.element.appendChild(this.moonLabelEl);
+    this.element.appendChild(this.moonValueEl);
+    this.element.appendChild(this.orbitDividerEl);
+    this.element.appendChild(this.orbitLabelEl);
+    this.element.appendChild(this.orbitValueEl);
   }
 
   mount(parent: HTMLElement): void {
@@ -134,10 +179,37 @@ export class InfoCard {
     this.update();
   }
 
+  /**
+   * 阶段 18 接入:由 EarthScene tick 调,更新月相显示
+   * @param name 8 阶段名称
+   * @param illumination 几何照度 (0-1, e.g. 0.6 = 60%)
+   */
+  setMoonPhase(name: MoonPhase, illumination: number): void {
+    this.moonPhaseName = name;
+    this.moonIllumination = illumination;
+    this.updateMoonValue();
+  }
+
+  /**
+   * 阶段 18 接入:由 EarthScene tick 调,更新公转位置
+   * @param dayOfYear 1-indexed day of year (1-366)
+   * @param totalDays 一年总天数(平年 365, 闰年 366)
+   */
+  setOrbitPosition(dayOfYear: number, totalDays: number): void {
+    this.orbitDayOfYear = dayOfYear;
+    this.orbitTotalDays = totalDays;
+    this.updateOrbitValue();
+  }
+
   private renderStatic(): void {
     this.tzLabelEl.textContent = i18n.t(i18nKeys.ui.timezone.label);
     this.timeLabelEl.textContent = i18n.t(i18nKeys.ui.time.label);
     this.sunLabelEl.textContent = i18n.t(i18nKeys.ui.sun.countdown.label);
+    this.moonLabelEl.textContent = i18n.t(i18nKeys.ui.moon.label);
+    this.orbitLabelEl.textContent = i18n.t(i18nKeys.ui.orbit.label);
+    // locale 切换时月相 + 公转的 value 也要更新(读已存的字段重新渲染)
+    this.updateMoonValue();
+    this.updateOrbitValue();
   }
 
   private update(): void {
@@ -150,6 +222,28 @@ export class InfoCard {
     this.sunValueEl.textContent = this.locationKnown
       ? this.computeSunCountdown(now)
       : i18n.t(i18nKeys.ui.sun.countdown.unknown);
+  }
+
+  private updateMoonValue(): void {
+    if (this.moonPhaseName === null) {
+      this.moonValueEl.textContent = "—";
+      return;
+    }
+    const phaseKey = i18nKeys.ui.moon.phase[this.moonPhaseName];
+    const phaseName = i18n.t(phaseKey);
+    const pct = Math.round(this.moonIllumination * 100);
+    this.moonValueEl.textContent = `${phaseName} ${pct}%`;
+  }
+
+  private updateOrbitValue(): void {
+    if (this.orbitDayOfYear === null) {
+      this.orbitValueEl.textContent = "—";
+      return;
+    }
+    this.orbitValueEl.textContent = i18n.t(i18nKeys.ui.orbit.dayProgress, {
+      day: this.orbitDayOfYear,
+      total: this.orbitTotalDays,
+    });
   }
 
   private computeSunCountdown(now: Date): string {
@@ -219,6 +313,16 @@ export class InfoCard {
       font-family: "JetBrains Mono", monospace;
       color: #e0e8ff;
       margin-top: 2px;
+    `;
+    return el;
+  }
+
+  private makeDivider(): HTMLDivElement {
+    const el = document.createElement("div");
+    el.style.cssText = `
+      border: 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      margin: 10px 0 0 0;
     `;
     return el;
   }

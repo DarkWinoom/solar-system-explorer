@@ -29,6 +29,29 @@ export const i18nKeys = {
         unknown: "ui.sun.countdown.unknown",
       },
     },
+    moon: {
+      label: "ui.moon.label",
+      phase: {
+        newMoon: "ui.moon.phase.newMoon",
+        waxingCrescent: "ui.moon.phase.waxingCrescent",
+        firstQuarter: "ui.moon.phase.firstQuarter",
+        waxingGibbous: "ui.moon.phase.waxingGibbous",
+        fullMoon: "ui.moon.phase.fullMoon",
+        waningGibbous: "ui.moon.phase.waningGibbous",
+        lastQuarter: "ui.moon.phase.lastQuarter",
+        waningCrescent: "ui.moon.phase.waningCrescent",
+      },
+    },
+    orbit: {
+      label: "ui.orbit.label",
+      dayProgress: "ui.orbit.dayProgress",
+    },
+    viewMode: {
+      overview: "ui.viewMode.overview",
+      sun: "ui.viewMode.sun",
+      earth: "ui.viewMode.earth",
+      moon: "ui.viewMode.moon",
+    },
     recenter: {
       label: "ui.recenter.label",
     },

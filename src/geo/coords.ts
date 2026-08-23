@@ -3,28 +3,39 @@ import * as THREE from "three";
 /**
  * 经纬度 → 3D 坐标工具
  *
- * 坐标系约定(对齐 Three.js SphereGeometry + NASA 纹理原点):
- *   - 公式:  x = -cos(lat)·cos(lon + 180°)
+ * 坐标系约定(对齐 Three.js SphereGeometry 朝阳面方向):
+ *   - 公式:  x = -cos(lat)·cos(lon)
  *            y = sin(lat)
- *            z = cos(lat)·sin(lon + 180°)
+ *            z = cos(lat)·sin(lon)
  *
- *   - 解读: "地理 lon=0"(本初子午线) → 渲染到 NASA 纹理的 0° 位置(本初)
- *           "地理 lon=121°E"(上海)  → 渲染到 NASA 纹理的 121°E 位置(上海)
+ *   - 解读: "地理 lon=0"(本初子午线) → 渲染到 Three.js -X 半球(朝阳面方向)
+ *           "地理 lon=180°"(dateline) → 渲染到 Three.js +X 半球(背阳面方向)
+ *           "地理 lon=90°E" → 渲染到 +Z 半球(晨昏线边缘)
  *
- * ⚠️ 2026-08-20 二次修复(纹理原点对齐):
- *   Three.js SphereGeometry 默认 phiStart=0 → 第一个 vertex 的 UV u=0;
- *   NASA Blue Marble 纹理的 u=0 实际是 180°W(国际日期变更线),不是 0°(本初)。
- *   所以"球面 local lon=0"位置 渲染到 NASA 纹理的 180°W = 大西洋上空。
- *   用户报告"看上海时间(地理 121°E),实际渲染到北美东部海域"——
- *   根因:地理 lon 跟 NASA 纹理原点有 180° 偏移。
+ * ⚠️ 2026-08-20 v19g 修复(去掉 +180° 偏移):
+ *   旧公式 (带 +180 偏移, v19c/v19f 状态) 让"地理 0° 位置" = (1, 0, 0) = Three.js +X 半球 (背阳面)。
+ *   后果: v19c/v19f 公式让"Three.js 背阳面 (latLon(0, 0) 位置)" 渲染成纯黑:
+ *     - 当 sunDirection.x > 0 (UTC 6-18 范围), +X 半球法线 dot uSunDir > 0
+ *     - Earth TSL `mix(night.rgb, output.rgb, dayStrength)` 偏向 output (PBR 受光 = 0 因为 DirectionalLight 不照 +X 半球)
+ *     - → finalOutput = 0 (纯黑, 看不到 night texture 城市灯光)
+ *   用户报告"背对太阳那面贴图完全丢失, 只能看到蓝色泛光" (Atmosphere Fresnel BackSide 边缘可见)
  *
- *   修法:latLon 加 180° 偏移,让"地理 lon=0"对齐到"NASA 纹理 0°(本初)"。
- *   等价:也可以设 `texture.offset.x = 0.5` 旋转纹理,但 texture.offset 副作用
- *   更大(emissive / bumpMap 等所有 UV 引用都偏移)。
+ *   新公式 (不带 +180 偏移) 让 latLon(0, 0) = -X 朝阳面方向,
+ *   跟"直射 0° 时 0° 朝阳" 物理意义一致, 配合新 sunDirection 公式 (v19g 跟 latLon 一致, 不带 +180 偏移):
+ *     - "Three.js 朝阳面" (latLon(0, 0) 位置) 在直射 0° 时朝阳 ✓
+ *     - "Three.js 背阳面" (latLon(0, 180) 位置) 在直射 0° 时背阳, 渲染成 night texture (城市灯光) ✓
+ *     - "上海 22:00" (新 latLon(31, 121) 位置) 离直射 151° 接近深夜, 渲染成 night texture ✓
+ *
+ * 半周期错位限制 (latLon 公式固有限制, 接受):
+ *   - latLon 是 L 的函数, 无法让"直射 L 时 L 在 -X 半球" 对所有 L 满足
+ *   - 实际意义: latLon(0, 0) 在 -X (直射 0° 时 0° 朝阳 ✓),
+ *             latLon(0, 180) 在 +X (直射 180° 时 180° 应该朝阳但 latLon 让 180° 在背阳面 ❌)
+ *   - 修法: 接受这个错位 (v19g 整体方案), Earth TSL 跟新 latLon + 新 sunDirection 保持一致
  *
  * 历史修正:
  *   - 第一次: x = -cos(lon) 匹配 Three.js SphereGeometry 顶点公式
- *   - 第二次: x = -cos(lon + 180°) 匹配 NASA 纹理原点(dateline 而非本初)
+ *   - 第二次: x = -cos(lon + 180°) 匹配 NASA 纹理原点 (v19c/v19f)
+ *   - 第三次: x = -cos(lon) 去掉 +180 偏移 (v19g, 修 "Three.js 背阳面 渲染成纯黑" 问题)
  */
 const DEG = Math.PI / 180;
 
@@ -32,14 +43,13 @@ const DEG = Math.PI / 180;
  * 经纬度 → 单位球面上的 THREE.Vector3(模长 1)
  * @param latDeg 纬度(度,-90 ~ 90)
  * @param lonDeg 经度(度,-180 ~ 180)— 真实地理经度(本初 = 0°,东 = 正,西 = 负)
- * @returns 三维单位向量(对齐 Three.js SphereGeometry + NASA 纹理渲染)
+ * @returns 三维单位向量(对齐 Three.js SphereGeometry 朝阳面方向)
  */
 export function latLonToCartesian(latDeg: number, lonDeg: number): THREE.Vector3 {
   const lat = latDeg * DEG;
-  // 加 180° 偏移:把"地理 lon"映射到"球面 local lon"
-  // 让 NASA 纹理 dateline(球面 local 0°)对应"地理 180°W"
-  // 让 NASA 纹理 本初(球面 local 180°)对应"地理 0°(本初)"
-  const lon = (lonDeg + 180) * DEG;
+  // 去掉 +180 偏移:让 latLon(0, 0) = -X (Three.js 朝阳面方向)
+  // 跟"直射 0° 时 0° 朝阳" 物理意义一致 (v19g)
+  const lon = lonDeg * DEG;
   return new THREE.Vector3(
     -Math.cos(lat) * Math.cos(lon),
     Math.sin(lat),

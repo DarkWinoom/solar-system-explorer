@@ -16,9 +16,9 @@ function mulberry32(seed: number): () => number {
 }
 
 export interface StarsOptions {
-  /** 星点数量。默认 4000 */
+  /** 星点数量。默认 6000 */
   count?: number;
-  /** 球面半径。默认 50 */
+  /** 球面半径。默认 250（覆盖 OrbitControls maxDistance=200 + 余量）*/
   radius?: number;
   /** 随机种子。默认 1337 */
   seed?: number;
@@ -54,8 +54,8 @@ export class Stars {
   private readonly uTime: any;
 
   constructor(options: StarsOptions = {}) {
-    const count = options.count ?? 4000;
-    const radius = options.radius ?? 50;
+    const count = options.count ?? 6000;
+    const radius = options.radius ?? 250;
     const seed = options.seed ?? 1337;
     const rng = mulberry32(seed);
 

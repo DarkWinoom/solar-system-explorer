@@ -119,4 +119,124 @@ describe("InfoCard", () => {
     ) as HTMLElement;
     expect(sunValue.textContent).toBe("Awaiting location");
   });
+
+  // ---- 阶段 18a: 月相行 + 公转行 ----
+  describe("月相行 (setMoonPhase)", () => {
+    it("默认 (未调 setMoonPhase) 显示占位 '—'", () => {
+      card.mount(parent);
+      const moonValue = card.element.querySelector(
+        '[data-testid="info-card-moon-value"]'
+      ) as HTMLElement;
+      expect(moonValue.textContent).toBe("—");
+    });
+
+    it("setMoonPhase('firstQuarter', 0.6) → '上弦月 60%' (zh-CN)", () => {
+      i18n.setLocale("zh-CN");
+      card.mount(parent);
+      card.setMoonPhase("firstQuarter", 0.6);
+      const moonValue = card.element.querySelector(
+        '[data-testid="info-card-moon-value"]'
+      ) as HTMLElement;
+      expect(moonValue.textContent).toBe("上弦月 60%");
+      i18n.setLocale("en-US"); // 恢复默认
+    });
+
+    it("setMoonPhase('fullMoon', 1.0) → '满月 100%' (zh-CN)", () => {
+      i18n.setLocale("zh-CN");
+      card.mount(parent);
+      card.setMoonPhase("fullMoon", 1.0);
+      const moonValue = card.element.querySelector(
+        '[data-testid="info-card-moon-value"]'
+      ) as HTMLElement;
+      expect(moonValue.textContent).toBe("满月 100%");
+      i18n.setLocale("en-US");
+    });
+
+    it("setMoonPhase 8 阶段都正确 (zh-CN)", () => {
+      i18n.setLocale("zh-CN");
+      card.mount(parent);
+      const expected = [
+        ["newMoon", "新月", 0],
+        ["waxingCrescent", "蛾眉月", 0.25],
+        ["firstQuarter", "上弦月", 0.5],
+        ["waxingGibbous", "盈凸月", 0.75],
+        ["fullMoon", "满月", 1],
+        ["waningGibbous", "亏凸月", 0.75],
+        ["lastQuarter", "下弦月", 0.5],
+        ["waningCrescent", "残月", 0.25],
+      ] as const;
+      for (const [name, phaseName, illumination] of expected) {
+        card.setMoonPhase(name, illumination);
+        const moonValue = card.element.querySelector(
+          '[data-testid="info-card-moon-value"]'
+        ) as HTMLElement;
+        expect(moonValue.textContent).toContain(phaseName);
+        expect(moonValue.textContent).toContain(
+          `${Math.round(illumination * 100)}%`
+        );
+      }
+      i18n.setLocale("en-US");
+    });
+
+    it("i18n 切到 en-US → 月相名变成英文", () => {
+      card.mount(parent);
+      card.setMoonPhase("firstQuarter", 0.6);
+      i18n.setLocale("en-US");
+      const moonValue = card.element.querySelector(
+        '[data-testid="info-card-moon-value"]'
+      ) as HTMLElement;
+      expect(moonValue.textContent).toBe("First Quarter 60%");
+    });
+
+    it("百分比 4 舍 5 入到整数 (0.605 → 61%)", () => {
+      card.mount(parent);
+      card.setMoonPhase("waxingGibbous", 0.605);
+      const moonValue = card.element.querySelector(
+        '[data-testid="info-card-moon-value"]'
+      ) as HTMLElement;
+      expect(moonValue.textContent).toContain("61%");
+    });
+  });
+
+  describe("公转行 (setOrbitPosition)", () => {
+    it("默认 (未调 setOrbitPosition) 显示占位 '—'", () => {
+      card.mount(parent);
+      const orbitValue = card.element.querySelector(
+        '[data-testid="info-card-orbit-value"]'
+      ) as HTMLElement;
+      expect(orbitValue.textContent).toBe("—");
+    });
+
+    it("setOrbitPosition(234, 365) → '第 234 / 365 天' (zh-CN)", () => {
+      i18n.setLocale("zh-CN");
+      card.mount(parent);
+      card.setOrbitPosition(234, 365);
+      const orbitValue = card.element.querySelector(
+        '[data-testid="info-card-orbit-value"]'
+      ) as HTMLElement;
+      expect(orbitValue.textContent).toBe("第 234 / 365 天");
+      i18n.setLocale("en-US");
+    });
+
+    it("setOrbitPosition(1, 365) → '第 1 / 365 天' (年初)", () => {
+      i18n.setLocale("zh-CN");
+      card.mount(parent);
+      card.setOrbitPosition(1, 365);
+      const orbitValue = card.element.querySelector(
+        '[data-testid="info-card-orbit-value"]'
+      ) as HTMLElement;
+      expect(orbitValue.textContent).toBe("第 1 / 365 天");
+      i18n.setLocale("en-US");
+    });
+
+    it("i18n 切到 en-US → 公转格式英文", () => {
+      card.mount(parent);
+      card.setOrbitPosition(234, 365);
+      i18n.setLocale("en-US");
+      const orbitValue = card.element.querySelector(
+        '[data-testid="info-card-orbit-value"]'
+      ) as HTMLElement;
+      expect(orbitValue.textContent).toBe("Day 234 / 365");
+    });
+  });
 });

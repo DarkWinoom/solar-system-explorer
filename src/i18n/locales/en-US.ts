@@ -37,6 +37,29 @@ export const enUS: NestedDict = {
         unknown: "Awaiting location",
       },
     },
+    moon: {
+      label: "Moon phase",
+      phase: {
+        newMoon: "New Moon",
+        waxingCrescent: "Waxing Crescent",
+        firstQuarter: "First Quarter",
+        waxingGibbous: "Waxing Gibbous",
+        fullMoon: "Full Moon",
+        waningGibbous: "Waning Gibbous",
+        lastQuarter: "Last Quarter",
+        waningCrescent: "Waning Crescent",
+      },
+    },
+    orbit: {
+      label: "Orbit",
+      dayProgress: "Day {day} / {total}",
+    },
+    viewMode: {
+      overview: "Overview",
+      sun: "Sun",
+      earth: "Earth",
+      moon: "Moon",
+    },
     recenter: {
       label: "Reset view",
     },

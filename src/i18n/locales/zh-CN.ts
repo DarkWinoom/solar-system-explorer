@@ -37,6 +37,29 @@ export const zhCN: NestedDict = {
         unknown: "待定位",
       },
     },
+    moon: {
+      label: "月相",
+      phase: {
+        newMoon: "新月",
+        waxingCrescent: "蛾眉月",
+        firstQuarter: "上弦月",
+        waxingGibbous: "盈凸月",
+        fullMoon: "满月",
+        waningGibbous: "亏凸月",
+        lastQuarter: "下弦月",
+        waningCrescent: "残月",
+      },
+    },
+    orbit: {
+      label: "公转",
+      dayProgress: "第 {day} / {total} 天",
+    },
+    viewMode: {
+      overview: "总览",
+      sun: "太阳",
+      earth: "地球",
+      moon: "月球",
+    },
     recenter: {
       label: "回到默认视角",
     },
