@@ -2,7 +2,7 @@
 
 > A real-time 3D Earth with day/night cycle and auto-located visitor view — pure frontend, no backend.
 
-![status](https://img.shields.io/badge/status-v1.0-brightgreen)
+![status](https://img.shields.io/badge/status-v1.1-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![tech](https://img.shields.io/badge/Three.js-r185-000000?logo=three.js)
 ![no-backend](https://img.shields.io/badge/backend-none-brightgreen)
@@ -17,29 +17,32 @@ English | [中文](./README.zh-CN.md)
 
 The entire experience is self-contained: no backend, no API keys (except a public IP geolocation API for first-load location detection), no build server at runtime.
 
-## Screenshots
+## Preview
 
-The initial view auto-locates the visitor and centers the camera on their home location.
+| Overview | Earth |
+| --- | --- |
+| ![Overview en-US](./docs/screenshots/en-US-overview.png) | ![Earth en-US](./docs/screenshots/en-US.png) |
 
-The terminator (day/night line) is computed from the current UTC sun position.
-
-![3D Earth Simulator — English UI, auto-located to Asia/Shanghai](./docs/screenshots/en-US.png)
+The terminator (day/night line) is computed from the current UTC sun position. The Overview view shows the Earth–Moon–Sun spatial relationship with both orbit guides; the Earth view shows the auto-located day/night terminator on the planet with NASA Black Marble city lights on the night side.
 
 The page starts with a fast rotation (600× real-time) so you can immediately see the planet is alive.
 
 After locating you, the camera tweens to your home position over 3 seconds while easing the spin back to 1×.
 
-Drag to rotate manually; a "Reset view" button appears so you can fly back home.
+Use the 4-view tabs in the top bar to switch between Overview / Sun / Earth / Moon; drag to rotate, scroll to zoom.
 
 ## Features
 
 - **Real-time day/night cycle** — sun position computed from current UTC time, terminator updates every frame
+- **Sun–Earth–Moon (SEM) system** — v1.1: 4-view tabs (Overview / Sun / Earth / Moon) with deterministic camera poses; the sun direction in the Earth view is the actual scene sun (not a faux DirectionalLight)
+- **Unified celestial state** — single `celestialState(instant)` is the only source for sun direction, Earth orientation, moon position and phase; scene / materials / camera / InfoCard all read from the same state
+- **8-phase moon calendar** — moonPhase() returns one of 8 phase names + geometric illumination, displayed in InfoCard
 - **1:1 Earth rotation** — Earth rotates at real-world speed (24h/revolution)
 - **Auto-located view** — initial camera position points to your actual location (IP API + `Intl` fallback)
 - **Drag & zoom** — `OrbitControls` for intuitive interaction
-- **Recenter button** — appears after manual rotation, click to fly back to your home view
 - **City lights at night** — NASA Black Marble overlay shows real city light patterns on the night side
 - **Multilingual UI** — zh-CN / en-US out of the box, custom language packs via `window.appI18n.registerLocale()`
+- **Dev URL params** — `?lan=en-US&loc=34.04,-118.25,-7&tz=America/Los_Angeles` for screenshots / demos / tests (force language + location + IANA tz name without VPN)
 - **Self-hosted fonts** — Orbitron / Inter / JetBrains Mono served locally as woff2, no Google Fonts CDN dependency
 - **Responsive layout** — works on mobile and desktop, TailwindCSS
 - **Pure frontend** — single Vite + TypeScript codebase, deployable to GitHub Pages / Vercel / Netlify with zero config

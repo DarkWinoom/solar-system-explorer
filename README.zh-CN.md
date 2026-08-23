@@ -2,7 +2,7 @@
 
 > 实时 3D 地球，支持昼夜交替、自动定位视角 — 纯前端，零后端。
 
-![status](https://img.shields.io/badge/status-v1.0-brightgreen)
+![status](https://img.shields.io/badge/status-v1.1-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![tech](https://img.shields.io/badge/Three.js-r185-000000?logo=three.js)
 ![no-backend](https://img.shields.io/badge/backend-无-brightgreen)
@@ -17,29 +17,32 @@
 
 整个体验完全自包含：无后端、无 API Key（首次定位除外，使用公共 IP 地理 API）、运行时无需构建服务器。
 
-## 截图
+## 效果预览
 
-初始视角会自动定位到访客所在位置，相机居中。
+| 总览（日地月系统） | 地球（定位视角） |
+| --- | --- |
+| ![总览](./docs/screenshots/zh-CN-overview.png) | ![地球](./docs/screenshots/zh-CN.png) |
 
-晨昏线由当前 UTC 太阳位置实时计算。
-
-![3D 地球模拟器 — 中文 UI，自动定位到 Asia/Shanghai](./docs/screenshots/zh-CN.png)
+晨昏线由当前 UTC 太阳位置实时计算。总览视图展示日地月空间关系和双轨道线；地球视图展示定位点的真实昼夜分界，夜面叠加 NASA Black Marble 城市灯光。
 
 页面启动时地球以 600× 真实速度高速旋转（让人一眼看到它在动）。
 
 定位完成后，3 秒内把相机 tween 到访客位置，同时把转速平滑减速到 1×。
 
-拖拽可手动旋转，操作后"回到默认视角"按钮淡出。
+顶栏的 4 视图 tabs 切换 总览 / 太阳 / 地球 / 月球；拖拽旋转，滚轮缩放。
 
 ## 特性
 
 - **实时昼夜交替** — 太阳位置由当前 UTC 时间计算，晨昏线每帧更新
+- **日地月系统（SEM）** — v1.1：4 视图 tabs（总览/太阳/地球/月球），相机姿态确定性，地球视角的光照方向就是场景里的真实太阳（不再是伪造的 DirectionalLight）
+- **统一天体状态** — 单一 `celestialState(instant)` 是太阳方向、地球姿态、月球位置和月相的唯一来源；场景 / 材质 / 相机 / InfoCard 都从同一状态读取
+- **8 阶段月历** — moonPhase() 返回 8 阶段名 + 几何照度，InfoCard 展示
 - **1:1 地球自转** — 与现实同步（24 小时 / 圈）
 - **自动定位视角** — 初始镜头对正你所在位置（IP API + `Intl` 兜底）
 - **拖拽 + 缩放** — `OrbitControls` 直观交互
-- **回到当前位置按钮** — 手动旋转地球后出现，点击后飞回初始视角
 - **夜面城市灯光** — NASA Black Marble 真实城市灯光纹理
 - **多语言 UI** — 开箱即用 zh-CN / en-US，通过 `window.appI18n.registerLocale()` 支持自定义语言包
+- **Dev URL 参数** — `?lan=en-US&loc=34.04,-118.25,-7&tz=America/Los_Angeles` 一键强制语言 + 定位 + IANA 时区名（截图 / 演示 / 测试用，无需 VPN）
 - **本地自托管字体** — Orbitron / Inter / JetBrains Mono 以 woff2 形式本地提供，零 Google Fonts CDN 依赖
 - **响应式布局** — 兼容移动端 + 桌面，使用 TailwindCSS
 - **纯前端** — 单 Vite + TypeScript 代码库，可零配置部署到 GitHub Pages / Vercel / Netlify
