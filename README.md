@@ -1,6 +1,6 @@
 # 3D Earth Simulator
 
-> A real-time 3D Earth with day/night cycle and auto-located visitor view — pure frontend, no backend.
+> A real-time Earth–Moon–Sun simulator with 4 views, accurate day/night terminator and live moon phase — pure frontend, no backend.
 
 ![status](https://img.shields.io/badge/status-v1.1-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
@@ -13,9 +13,11 @@ English | [中文](./README.zh-CN.md)
 
 ## Overview
 
-3D Earth Simulator is a single-page web application that renders a real-time 3D Earth in your browser. It uses Three.js to draw a textured Earth sphere, computes the sun's position from the current UTC time to draw an accurate day/night terminator, and auto-rotates the view to face your current location.
+3D Earth Simulator is a single-page web application that renders a real-time Earth–Moon–Sun system in your browser. Built on Three.js, it computes the sun's position from the current UTC time to drive an accurate day/night terminator on Earth, derives the moon phase and orbital position from the same celestial state, and ships a 4-view interface (Overview / Sun / Earth / Moon) so you can explore the system at any scale.
 
-The entire experience is self-contained: no backend, no API keys (except a public IP geolocation API for first-load location detection), no build server at runtime.
+On first load it auto-locates you from your public IP and tweens the camera to your home position. The InfoCard tracks your local time, sunrise / sunset, moon phase and day-of-year in real time. Every camera pose is recomputed from the current fov and aspect ratio, so the view stays comfortable from a vertical phone to a wide desktop.
+
+The entire experience is self-contained: no backend, no API keys (except a public IP geolocation API for first-load location), no build server at runtime.
 
 ## Preview
 
