@@ -24,7 +24,8 @@ Start with the whole solar system, then get closer to any world. Follow Earth's 
 | Visit a world | Select its name in the navigation, click the planet itself, or click its label |
 | Look around | Drag the scene; use the wheel or pinch to zoom |
 | Find another planet | Select an edge arrow or use the destination bar |
-| Advance the simulation | Select **Fast forward**; one second advances 30 days |
+| Advance the simulation | Select **Fast forward** next to the logo; one second advances the date and orbits by 30 days |
+| Show or hide orbits | Use **Orbits** at the top right; visiting a planet preserves this setting |
 | Restore the current time | Select **Back to live** |
 | Return to the full system | Select **Solar system** |
 | Close a profile | Select **×** or press **Esc**; your viewpoint stays in place |
@@ -47,7 +48,7 @@ On a phone, swipe the destination bar to find more planets. Profiles slide in fr
 
 ## Time, scale, and what you see
 
-Your local clock includes the year and always shows the actual time. Fast forward displays a separate simulated date and advances all rotations, orbits, phases and distances together. “Back to live” restores the current instant.
+Your local clock includes the year and always shows the actual time. Fast forward displays a separate simulated date and advances orbital positions, phases and distances together. Surface rotation uses a continuous, slower display spin to avoid flickering or apparent reversal; returning to live time smoothly restores the true orientation. “Back to live” restores the current instant.
 
 The same instant produces the same planetary positions everywhere on Earth. Your time zone changes the clock display and the initial Earth viewpoint; it does not move the planets. Earth opens toward a representative location for your time zone, rather than a precise GPS location. Its profile also shows approximate local sunrise, sunset, and the illuminated fraction of the Moon.
 
