@@ -43,7 +43,7 @@ export const zhCN: TranslationShape<typeof enUS> = {
     approximate: "根据时区估计的观察点",
     manualLocation: "自定义观察点",
     model:
-      "默认按现实时间 1:1 更新；模拟推进每秒前进 30 天，恢复实时可回到当前时刻。大小与距离分别缩放，以便清晰观察。轨道为采样路径，表面纹理和星空配色为视觉表达。",
+      "默认按现实时间 1:1 更新；模拟日期与公转每秒前进 30 天。表面自转以较慢的连续动画示意，避免频闪；恢复实时会回到真实姿态与当前时刻。大小与距离分别缩放，以便清晰观察。轨道为采样路径，表面纹理和星空配色为视觉表达。",
     precision: "行星位置：Astronomy Engine。物理资料：NASA / JPL。",
     soundCredit: "Adrift Among Infinite Stars · Scott Buckley · CC BY 4.0",
     audioHint: "由你主动开启音乐后才会播放。",

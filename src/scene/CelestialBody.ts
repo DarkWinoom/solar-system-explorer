@@ -26,6 +26,7 @@ import {
 import type { BodyDefinition } from "../data/bodies";
 import type { BodyState } from "../astronomy/ephemeris";
 import { TextureStore } from "./TextureStore";
+import { SurfaceRotation } from "./SurfaceRotation";
 
 export class CelestialBody {
   readonly group = new Group();
@@ -34,12 +35,14 @@ export class CelestialBody {
   private readonly center = uniform(new Vector3());
   private readonly materials: Material[] = [];
   private readonly geometries: BufferGeometry[] = [];
+  private readonly surfaceRotation: SurfaceRotation;
 
   constructor(
     readonly definition: BodyDefinition,
     geometry: SphereGeometry,
     textures: TextureStore,
   ) {
+    this.surfaceRotation = new SurfaceRotation(definition.rotationDays);
     const material = new MeshBasicNodeMaterial();
     const map = texture(textures.get(definition.texture, definition.color));
     const lighting = normalWorldGeometry.dot(this.sun).max(0);
@@ -147,9 +150,11 @@ export class CelestialBody {
     this.group.add(sprite);
   }
 
-  update(state: BodyState): void {
+  update(state: BodyState, advancing = false, now = performance.now()): void {
     this.group.position.copy(state.position);
-    this.group.quaternion.copy(state.orientation);
+    this.group.quaternion.copy(
+      this.surfaceRotation.update(state.orientation, advancing, now),
+    );
     this.sun.value.copy(state.sunDirection);
     this.center.value.copy(state.position);
   }

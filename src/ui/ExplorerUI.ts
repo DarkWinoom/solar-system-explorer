@@ -51,7 +51,7 @@ export class ExplorerUI {
     this.element.innerHTML = `
       <header class="topbar">
         <button class="brand" data-view="overview" aria-label="ORBITAL"><span class="brand-orbit">${icon("orbit")}</span><span>ORBITAL<small data-i18n="app.title"></small></span></button>
-        <span class="header-status"><span class="live-dot"></span><span id="time-mode"></span></span>
+        <button class="advance-button" id="advance-toggle" data-action="advance" aria-pressed="false" disabled></button>
         <div class="tools">
           <button class="tool toggle" data-action="orbits" aria-pressed="true">${icon("orbit")}<span data-i18n="ui.orbits"></span></button>
           <button class="tool toggle labels-tool" data-action="labels" aria-pressed="true">${icon("focus")}<span data-i18n="ui.labels"></span></button>
@@ -76,7 +76,7 @@ export class ExplorerUI {
         <div class="scene-message" id="scene-message" role="status" hidden></div>
       </main>
       <aside class="body-card" id="body-card" aria-labelledby="card-title" hidden><div class="card-top"><span class="eyebrow" data-i18n="ui.profile"></span><button class="close" id="close-card" data-action="close">${icon("close")}</button></div><div id="card-content"></div><a class="source" id="card-source" target="_blank" rel="noreferrer"><span data-i18n="ui.source"></span>${icon("arrow")}</a><button class="back-overview" data-view="overview">${icon("orbit")}<span data-i18n="ui.back"></span>${icon("arrow")}</button></aside>
-      <footer class="statusbar"><div class="time"><span class="live-dot"></span><div><span class="eyebrow" data-i18n="ui.localTime"></span><div class="clock-row"><time id="local-time"></time><span id="timezone"></span></div></div></div><div class="time-controls"><div id="simulation-clock" hidden><span data-i18n="ui.advanceRate"></span><time id="simulation-time"></time></div><button class="advance-button" id="advance-toggle" data-action="advance" aria-pressed="false" disabled></button></div><button class="scale-note" data-action="help">${icon("info")}<span data-i18n="ui.scale"></span></button></footer>
+      <footer class="statusbar"><div class="time"><span class="live-dot"></span><div><span class="eyebrow" data-i18n="ui.localTime"></span><div class="clock-row"><time id="local-time"></time><span id="timezone"></span></div></div></div><div class="time-controls"><div id="simulation-clock" hidden><span data-i18n="ui.advanceRate"></span><time id="simulation-time"></time></div></div><button class="scale-note" data-action="help">${icon("info")}<span data-i18n="ui.scale"></span></button></footer>
       <span class="sr-only" id="selection-announcement" role="status" aria-live="polite"></span>`;
     this.viewport = this.find("viewport");
     this.labels = this.find("labels");
@@ -187,9 +187,6 @@ export class ExplorerUI {
     this.advancing = enabled;
     this.element.classList.toggle("is-advancing", enabled);
     this.find("simulation-clock").hidden = !enabled;
-    this.find("time-mode").textContent = i18n.t(
-      enabled ? "ui.simulating" : "ui.live",
-    );
     const button = this.find<HTMLButtonElement>("advance-toggle");
     button.setAttribute("aria-pressed", String(enabled));
     button.setAttribute(

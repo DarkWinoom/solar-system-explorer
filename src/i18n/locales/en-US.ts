@@ -38,7 +38,7 @@ export const enUS = {
     approximate: "Approximate viewpoint from your time zone",
     manualLocation: "Custom viewpoint",
     model:
-      "Real time is 1:1. Fast forward advances 30 days per second; Back to live restores the current instant. Distances and body sizes are scaled separately for readability. Orbits are sampled paths; surface textures and star colors are illustrative.",
+      "Real time is 1:1. Fast forward advances the date and orbits by 30 days per second. Surface spin is shown more slowly to avoid strobing. Back to live restores the true pose and time. Distances and body sizes are scaled separately for readability. Orbits are sampled paths; surface textures and star colors are illustrative.",
     precision:
       "Planet positions: Astronomy Engine. Physical facts: NASA / JPL.",
     soundCredit: "Adrift Among Infinite Stars · Scott Buckley · CC BY 4.0",

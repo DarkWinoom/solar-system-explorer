@@ -156,6 +156,7 @@ export class SolarSystemScene {
           depthWrite: false,
         });
         const line = new Line(geometry, material);
+        line.visible = this.guideVisible;
         this.guides.set(id, line);
         this.scene.add(line);
       }
@@ -188,7 +189,11 @@ export class SolarSystemScene {
     )
       this.buildGuides();
     this.bodies.forEach((body) =>
-      body.update(state.bodies[body.definition.id]),
+      body.update(
+        state.bodies[body.definition.id],
+        this.ephemeris.clock.isAdvancing,
+        now,
+      ),
     );
     this.guides.get("moon")!.position.copy(state.bodies.earth.position);
     this.controller.update(state, now);
@@ -203,11 +208,6 @@ export class SolarSystemScene {
     this.resize();
     this.controller.select(view, this.ephemeris.update());
     for (const [id, guide] of this.guides) {
-      guide.visible =
-        this.guideVisible &&
-        (view === "overview" ||
-          id === view ||
-          (view === "earth" && id === "moon"));
       guide.material.opacity = view === id ? 0.4 : 0.27;
     }
     this.renderer.domElement.dataset.view = view;
@@ -221,13 +221,7 @@ export class SolarSystemScene {
 
   setOrbits(visible: boolean): void {
     this.guideVisible = visible;
-    const view = this.controller.view;
-    for (const [id, guide] of this.guides)
-      guide.visible =
-        visible &&
-        (view === "overview" ||
-          view === id ||
-          (view === "earth" && id === "moon"));
+    for (const guide of this.guides.values()) guide.visible = visible;
   }
 
   private resize = (): void => {

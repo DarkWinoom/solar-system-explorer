@@ -10,6 +10,9 @@ test("shows the year, advances the simulation, and returns to live time", async 
   page,
 }) => {
   await open(page);
+  await expect(page.locator(".topbar #advance-toggle")).toBeVisible();
+  await expect(page.locator(".statusbar #advance-toggle")).toHaveCount(0);
+  await expect(page.locator("#time-mode")).toHaveCount(0);
   await expect(page.locator("#local-time")).toContainText(
     String(new Date().getFullYear()),
   );
