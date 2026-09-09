@@ -1,42 +1,67 @@
-# Third-Party Notices
+# Third-party notices
 
-This project uses the following open-source third-party assets. All are used in compliance with their respective licenses.
+Application code is licensed under [MIT](./LICENSE). The assets and libraries below retain their own licenses.
 
-## Runtime Dependencies
+## Libraries
 
-| Package | Version | License | Source |
+| Component | Version | License | License text |
 | --- | --- | --- | --- |
-| [three](https://github.com/mrdoob/three.js) | ^0.160.1 | MIT | npm |
+| [Three.js](https://github.com/mrdoob/three.js) | 0.185.1 | MIT | [three-MIT.txt](./public/licenses/three-MIT.txt) |
+| [Astronomy Engine](https://github.com/cosinekitty/astronomy) | 2.1.19 | MIT | [astronomy-engine-MIT.txt](./public/licenses/astronomy-engine-MIT.txt) |
 
-## Fonts (Google Fonts, SIL Open Font License)
+Astronomy Engine is by Donald Cross. Build and test dependencies are recorded in `package.json` and `pnpm-lock.yaml`; they are not runtime web services.
 
-| Font | License | Source |
+## Solar System Scope textures
+
+Source: [Solar System Scope texture library](https://www.solarsystemscope.com/textures/).
+Creator: Solar System Scope, © 2016–2019.
+License: [Creative Commons Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/).
+
+| Distributed asset | Original asset | Changes |
 | --- | --- | --- |
-| [Orbitron](https://fonts.google.com/specimen/Orbitron) | OFL 1.1 | Google Fonts |
-| [Inter](https://fonts.google.com/specimen/Inter) | OFL 1.1 | Google Fonts |
-| [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono) | OFL 1.1 | Google Fonts |
+| `2k_sun.webp` | `2k_sun.jpg` | WebP encoding |
+| `2k_mercury.webp` | `2k_mercury.jpg` | WebP encoding |
+| `2k_venus_atmosphere.webp` | `2k_venus_atmosphere.jpg` | WebP encoding |
+| `2k_earth_daymap.webp` | `2k_earth_daymap.jpg` | WebP encoding |
+| `2k_earth_nightmap.webp` | `2k_earth_nightmap.jpg` | WebP encoding |
+| `2k_earth_clouds.webp` | `2k_earth_clouds.jpg` | WebP encoding |
+| `2k_moon.webp` | `2k_moon.jpg` | WebP encoding |
+| `2k_mars.webp` | `2k_mars.jpg` | WebP encoding |
+| `2k_jupiter.webp` | `2k_jupiter.jpg` | WebP encoding |
+| `2k_saturn.webp` | `2k_saturn.jpg` | WebP encoding |
+| `2k_saturn_ring_alpha.png` | `2k_saturn_ring_alpha.png` | Unchanged |
+| `2k_uranus.webp` | `2k_uranus.jpg` | WebP encoding |
+| `2k_neptune.webp` | `2k_neptune.jpg` | WebP encoding |
 
-OFL texts: <https://scripts.sil.org/OFL>
+Assets are in `public/textures/`. Their in-app appearance is modified by lighting, night-side blending, cloud blending, and geometry mapping. These credits do not imply endorsement by the creator.
 
-## Earth Textures (Public Domain)
+## Music
 
-| Asset | Source | License |
+**[Galactic Temple](https://opengameart.org/content/galactic-temple)** by [yd](https://opengameart.org/users/yd), published August 8, 2013.
+
+The source page declares [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/).
+The original `GalacticTemple.ogg` is distributed as `public/audio/galactic-temple.ogg`.
+`galactic-temple.mp3` is a format conversion of the same recording for browser compatibility.
+The composition is unchanged; the app loops playback and applies the user's volume setting.
+
+## Fonts
+
+Only the required local Latin font subsets are bundled. Chinese uses the visitor's system fonts.
+
+| Font | License | Included license text |
 | --- | --- | --- |
-| Earth day-side texture | NASA Visible Earth — Blue Marble | Public Domain |
-| Earth night-side lights | NASA Black Marble (2016) | Public Domain |
+| [Inter](https://github.com/rsms/inter) | SIL OFL 1.1 | [Inter-OFL.txt](./public/licenses/Inter-OFL.txt) |
+| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) | SIL OFL 1.1 | [JetBrainsMono-OFL.txt](./public/licenses/JetBrainsMono-OFL.txt) |
+| [Orbitron](https://github.com/theleagueof/orbitron) | SIL OFL 1.1 | [Orbitron-OFL.txt](./public/licenses/Orbitron-OFL.txt) |
 
-NASA imagery is generally in the public domain. See: <https://earthobservatory.nasa.gov/imagery/use-policies>
+These font packages are supplied by Fontsource. Font files themselves are not modified.
 
-## Solar System Scope Textures (CC BY 4.0)
+## Scientific data
 
-| Asset | Source | License |
-| --- | --- | --- |
-| Sun (2k_sun.jpg) | [Solar System Scope](https://www.solarsystemscope.com/textures/) | CC BY 4.0 |
-| Moon (2k_moon.jpg) | [Solar System Scope](https://www.solarsystemscope.com/textures/) | CC BY 4.0 |
+- [JPL Planetary Physical Parameters](https://ssd.jpl.nasa.gov/planets/phys_par.html): mean radii and sidereal periods for the eight planets. Diameters are twice the volume-equivalent mean radii. Periods are rounded for display.
+- [NASA Sun Facts](https://science.nasa.gov/sun/facts/): approximate solar diameter and equatorial rotation.
+- [NASA Moon Facts](https://science.nasa.gov/moon/facts/) and [JPL satellite physical parameters](https://ssd.jpl.nasa.gov/sats/phys_par/): lunar facts and mean radius.
+- [JPL Horizons API](https://ssd-api.jpl.nasa.gov/doc/horizons.html): independent geometric position samples in `tests/astronomy/jpl-samples.json`. The fixture records its reference frame, units, timescale, and retrieval date. These are test data, not a live runtime dependency.
+- [Astronomy Engine rotation reference](https://github.com/cosinekitty/astronomy/tree/master/source/js#rotationaxisbody-date--axisinfo): IAU-based orientation and rotation models.
 
-Textures are from <https://www.solarsystemscope.com/textures/>, used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-© 2016-2019 Solar System Scope.
-
-## Why These Choices
-
-All dependencies above are MIT / OFL / Public Domain — confirmed safe for commercial and personal use. No GPL / LGPL / commercial-licensed assets are used.
+The decorative star field, interface graphics, and corona gradient are generated by application code. They are not a catalog of measured stars.

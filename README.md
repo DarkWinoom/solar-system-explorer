@@ -1,145 +1,96 @@
-# 3D Earth Simulator
+# ORBITAL · Solar System Explorer
 
-> A real-time Earth–Moon–Sun simulator with 4 views, accurate day/night terminator and live moon phase — pure frontend, no backend.
+A quiet window into our solar system. Explore the Sun, all eight planets, and the Moon in 3D, at the pace of the real world.
 
-![status](https://img.shields.io/badge/status-v1.1-brightgreen)
-![license](https://img.shields.io/badge/license-MIT-blue)
-![tech](https://img.shields.io/badge/Three.js-r185-000000?logo=three.js)
-![no-backend](https://img.shields.io/badge/backend-none-brightgreen)
+**[Open the online demo](https://3d-earth-simulator.netlify.app/)** · English | [简体中文](./README.zh-CN.md)
 
-[Online Demo](https://3d-earth-simulator.netlify.app/)
+![The solar system in ORBITAL](./docs/screenshots/en-US-overview.png)
 
-English | [中文](./README.zh-CN.md)
+## Your next destination
 
-## Overview
+Start with the whole solar system, then get closer to any world. Follow Earth's day and night, discover Saturn's rings, or find Neptune on the edge of your view.
 
-3D Earth Simulator is a single-page web application that renders a real-time Earth–Moon–Sun system in your browser. Built on Three.js, it computes the sun's position from the current UTC time to drive an accurate day/night terminator on Earth, derives the moon phase and orbital position from the same celestial state, and ships a 4-view interface (Overview / Sun / Earth / Moon) so you can explore the system at any scale.
+- **Real time, 1:1.** Positions and rotation follow your device's clock. Nothing speeds up when you open the page.
+- **Ten destinations.** The Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, and our Moon.
+- **A profile for every world.** Read a short introduction, diameter, orbital period, rotation period, and current distance, with links to the data sources.
+- **A way to find your bearings.** Edge arrows point toward worlds outside your view. Crowded or hidden destinations remain available in the navigation and “More destinations” menu.
+- **Your language and local time.** English and Simplified Chinese are included. The language menu supports additional language packs and a “Follow system” setting.
+- **An optional soundtrack.** Turn on the space ambient track, adjust the volume, or enjoy the silence. Music starts only when you ask it to.
 
-On first load it auto-locates you from your public IP and tweens the camera to your home position. The InfoCard tracks your local time, sunrise / sunset, moon phase and day-of-year in real time. Every camera pose is recomputed from the current fov and aspect ratio, so the view stays comfortable from a vertical phone to a wide desktop.
+## Explore in a few clicks
 
-The entire experience is self-contained: no backend, no API keys (except a public IP geolocation API for first-load location), no build server at runtime.
-
-## Preview
-
-| Overview | Earth |
+| To… | Do this |
 | --- | --- |
-| ![Overview en-US](./docs/screenshots/en-US-overview.png) | ![Earth en-US](./docs/screenshots/en-US.png) |
+| Visit a world | Select its name in the navigation, click the planet itself, or click its label |
+| Look around | Drag the scene; use the wheel or pinch to zoom |
+| Find another planet | Select an edge arrow or open “More destinations” |
+| Return to the full system | Select **Solar system** |
+| Close a profile | Select **×** or press **Esc**; your viewpoint stays in place |
+| Change the language | Open the globe menu and choose a language or **Follow system** |
+| Play or mute music | Open **Audio** and use the play/mute button |
+| Adjust volume with a keyboard | Focus the volume slider and use the arrow keys; Home/End select 0%/100% |
 
-The terminator (day/night line) is computed from the current UTC sun position. The Overview view shows the Earth–Moon–Sun spatial relationship with both orbit guides; the Earth view shows the auto-located day/night terminator on the planet with NASA Black Marble city lights on the night side.
+On a phone, swipe the destination bar to find more planets. Profiles slide in from the right and scroll independently.
 
-The page starts with a fast rotation (600× real-time) so you can immediately see the planet is alive.
-
-After locating you, the camera tweens to your home position over 3 seconds while easing the spin back to 1×.
-
-Use the 4-view tabs in the top bar to switch between Overview / Sun / Earth / Moon; drag to rotate, scroll to zoom.
-
-## Features
-
-- **Real-time day/night cycle** — sun position computed from current UTC time, terminator updates every frame
-- **Sun–Earth–Moon (SEM) system** — v1.1: 4-view tabs (Overview / Sun / Earth / Moon) with deterministic camera poses; the sun direction in the Earth view is the actual scene sun (not a faux DirectionalLight)
-- **Unified celestial state** — single `celestialState(instant)` is the only source for sun direction, Earth orientation, moon position and phase; scene / materials / camera / InfoCard all read from the same state
-- **8-phase moon calendar** — moonPhase() returns one of 8 phase names + geometric illumination, displayed in InfoCard
-- **1:1 Earth rotation** — Earth rotates at real-world speed (24h/revolution)
-- **Auto-located view** — initial camera position points to your actual location (IP API + `Intl` fallback)
-- **Drag & zoom** — `OrbitControls` for intuitive interaction
-- **City lights at night** — NASA Black Marble overlay shows real city light patterns on the night side
-- **Multilingual UI** — zh-CN / en-US out of the box, custom language packs via `window.appI18n.registerLocale()`
-- **Dev URL params** — `?lan=en-US&loc=34.04,-118.25,-7&tz=America/Los_Angeles` for screenshots / demos / tests (force language + location + IANA tz name without VPN)
-- **Self-hosted fonts** — Orbitron / Inter / JetBrains Mono served locally as woff2, no Google Fonts CDN dependency
-- **Responsive layout** — works on mobile and desktop, TailwindCSS
-- **Pure frontend** — single Vite + TypeScript codebase, deployable to GitHub Pages / Vercel / Netlify with zero config
-
-## Tech Stack
-
-| Layer | Choice |
+| Earth's night side | Saturn and its profile |
 | --- | --- |
-| Renderer | [Three.js](https://threejs.org/) r160 |
-| Build | [Vite](https://vitejs.dev/) 5 + TypeScript 5 |
-| Styling | [TailwindCSS](https://tailwindcss.com/) 3 |
-| Controls | `three/examples/jsm/controls/OrbitControls` |
-| Geolocation | `ipapi.co` / `ipwho.is` (CORS-friendly, no key) |
-| Testing | [Vitest](https://vitest.dev/) |
+| ![Earth at the visitor's local time](./docs/screenshots/en-US.png) | ![Saturn's rings and physical data](./docs/screenshots/en-US-saturn.png) |
 
-## Quick Start
+<details>
+<summary>See the mobile layout</summary>
 
-Requirements: Node.js ≥ 18, [pnpm](https://pnpm.io/) ≥ 8 (or `npm` / `yarn`).
+![Mobile overview](./docs/screenshots/en-US-mobile-overview.png)
+
+</details>
+
+## Time, scale, and what you see
+
+The same instant produces the same planetary positions everywhere on Earth. Your time zone changes the clock display and the initial Earth viewpoint; it does not move the planets. Earth opens toward a representative location for your time zone, rather than a precise GPS location. Its profile also shows approximate local sunrise, sunset, and the illuminated fraction of the Moon.
+
+**Sizes and distances are scaled separately** so that inner and outer planets can share the screen. Orbit guides follow sampled astronomical positions. Profile distances come from the unscaled coordinates, not from the displayed spacing.
+
+Planet diameters use volume-equivalent mean values. Rotation periods are measured relative to the stars: Earth's is about **23 hours 56 minutes**. Venus and Uranus are marked as retrograde. Giant-planet rotation uses JPL reference values; the Sun's equatorial rotation is shown as an approximation. The Moon's 27.3-day orbit is distinct from its roughly 29.5-day phase cycle.
+
+Astronomical calculations use [Astronomy Engine](https://github.com/cosinekitty/astronomy). Tests compare the eight planets and the Moon against 27 [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) samples from 2000, 2026, and 2040; the largest angular difference in those samples is about 15 arcseconds. Surface textures and the decorative star field are not live imagery or an observing star chart.
+
+## Small details, considered
+
+The interface uses text of at least 14px, visible keyboard focus, styled language and audio controls, and reduced-motion preferences. On slower devices, the scene can lower its rendering resolution while interface text stays sharp. It remembers your language choice and volume. Each new visit starts quietly; background tabs pause rendering and music, and returning synchronizes the scene to the current time.
+
+A modern browser with **WebGL 2** is required. If the scene cannot start, enable hardware acceleration or try another browser. A failed surface texture does not stop you from navigating the system. All visual assets, fonts, music, and calculations are served with the app; no account, GPS permission, or geolocation service is required.
+
+<details>
+<summary>Run it on your computer</summary>
+
+Use Node.js 22 or newer and pnpm.
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Start dev server
+pnpm install --frozen-lockfile
 pnpm dev
-# → http://localhost:5173
+```
 
-# Build for production
-pnpm build
+Open the local address printed in the terminal.
 
-# Preview production build
-pnpm preview
-
-# Run tests
+```bash
+pnpm typecheck
 pnpm test
+pnpm test:e2e
+pnpm build
+pnpm preview
 ```
 
-## Project Structure
+The browser tests require Playwright Chromium (`pnpm exec playwright install chromium`). The production output in `dist/` can be hosted as a static site, including under a subdirectory.
 
-```dir
-3d-earth-simulator/
-├── public/                 # Static assets (textures, fonts)
-├── src/
-│   ├── main.ts             # Entry point
-│   ├── app.ts              # App initialization
-│   ├── scene/              # Three.js scene modules
-│   ├── shaders/            # GLSL shaders (earth day/night, atmosphere)
-│   ├── geo/                # Geolocation logic
-│   ├── i18n/               # Multilingual system
-│   ├── ui/                 # UI components (top bar, info card, etc.)
-│   ├── utils/              # Sun / time utilities
-│   ├── styles/             # TailwindCSS + global styles
-│   └── types/              # TypeScript type declarations
-├── tests/                  # Vitest unit tests
-├── index.html              # Vite entry
-├── vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-├── package.json
-├── LICENSE
-└── NOTICES.md
-```
+</details>
 
-## Browser Support
+## Credits and license
 
-- Chrome / Edge ≥ 100
-- Firefox ≥ 100
-- Safari ≥ 15
-- Mobile Safari / Chrome Android (responsive layout)
+Code: [MIT](./LICENSE). Third-party assets keep their own licenses.
 
-Requires WebGL 2 support. No WebGL 1 fallback.
+- [Three.js](https://threejs.org/) and [Astronomy Engine](https://github.com/cosinekitty/astronomy) — rendering and astronomy, MIT.
+- [NASA / JPL](https://ssd.jpl.nasa.gov/planets/phys_par.html) — physical and orbital reference data.
+- [Solar System Scope](https://www.solarsystemscope.com/textures/) — surface and ring textures, CC BY 4.0, converted to WebP where applicable.
+- [Galactic Temple by yd](https://opengameart.org/content/galactic-temple) — ambient music, CC0.
+- Inter, JetBrains Mono, and Orbitron — fonts, SIL Open Font License.
 
-## Customization
-
-### Change language at runtime
-
-Open the browser console:
-
-```js
-window.appI18n.registerLocale('ja-JP', {
-  'tz.label': 'タイムゾーン',
-  'time.label': '現在時刻',
-  // ...
-});
-window.appI18n.setLocale('ja-JP');
-```
-
-## License
-
-[MIT](./LICENSE) — free for personal and commercial use.
-
-## Acknowledgments
-
-- [Three.js](https://threejs.org/) — the rendering engine
-- [NASA Visible Earth](https://visibleearth.nasa.gov/) — Blue Marble and Black Marble textures (public domain)
-- [Google Fonts](https://fonts.google.com/) — Orbitron, Inter, JetBrains Mono (OFL)
-
-See [NOTICES.md](./NOTICES.md) for the full third-party license list.
+See [Third-party notices](./NOTICES.md) for asset details, changes, and license texts.

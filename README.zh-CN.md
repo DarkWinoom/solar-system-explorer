@@ -1,145 +1,97 @@
-# 3D 地球模拟器
+# ORBITAL · 太阳系探索
 
-> 实时日地月模拟器，4 视图，精确昼夜与实时月相 — 纯前端，零后端。
+打开一扇通往太阳系的窗。以现实世界的节奏，在三维空间中探索太阳、八大行星和月球。
 
-![status](https://img.shields.io/badge/status-v1.1-brightgreen)
-![license](https://img.shields.io/badge/license-MIT-blue)
-![tech](https://img.shields.io/badge/Three.js-r185-000000?logo=three.js)
-![no-backend](https://img.shields.io/badge/backend-无-brightgreen)
+**[打开在线体验](https://3d-earth-simulator.netlify.app/)** · [English](./README.md) | 简体中文
 
-[在线预览](https://3d-earth-simulator.netlify.app/)
+![ORBITAL 太阳系全景](./docs/screenshots/zh-CN-overview.png)
 
-[English](./README.md) | 中文
+## 选择你的下一站
 
-## 简介
+从整个太阳系出发，靠近每一个世界。观察地球的昼夜交替，欣赏土星的光环，或循着视野边缘的方向找到海王星。
 
-3D 地球模拟器是一个单页 Web 应用，在你的浏览器里渲染一个实时日地月系统。基于 Three.js，它根据当前 UTC 时间计算太阳位置来驱动地球上精确的晨昏线，从同一状态推导出月相和公转日序，并提供 4 视图界面（总览 / 太阳 / 地球 / 月球），让你任意尺度探索这套系统。
+- **现实时间，1:1 运行。** 天体位置与自转跟随设备时钟，打开页面不会触发加速。
+- **十个探索目的地。** 太阳、水星、金星、地球、火星、木星、土星、天王星、海王星，以及月球。
+- **每个世界都有档案。** 一句话简介、直径、公转周期、自转周期、当前距离，并附数据来源。
+- **随时找到方向。** 边缘箭头指向视野之外的天体；拥挤或被遮挡的目标仍可通过导航和“更多目的地”访问。
+- **你的语言与当地时间。** 内置中文和英文；语言菜单支持扩展语言包，也可选择“跟随系统”。
+- **可选的太空配乐。** 主动开启环境音乐，调节音量，或保持安静。页面不会自动播放声音。
 
-首次加载时它通过你的公网 IP 自动定位，并把相机 tween 到你所在地；InfoCard 实时追踪本地时间、日出日落、月相和公转日序。每次切 tab 都按当前 fov 和视口比例重算相机距离，从竖屏手机到宽屏桌面都保持舒适。
+## 几步开始探索
 
-整个体验完全自包含：无后端、无 API Key（首次定位除外，使用公共 IP 地理 API）、运行时无需构建服务器。
-
-## 效果预览
-
-| 总览（日地月系统） | 地球（定位视角） |
+| 想要做什么 | 操作方式 |
 | --- | --- |
-| ![总览](./docs/screenshots/zh-CN-overview.png) | ![地球](./docs/screenshots/zh-CN.png) |
+| 前往一个世界 | 点击导航中的名称、星球本体或场景标签 |
+| 调整观察角度 | 拖动场景旋转；滚轮或双指缩放 |
+| 寻找其他行星 | 点击屏幕边缘的箭头，或打开“更多目的地” |
+| 回到完整太阳系 | 点击 **太阳系全景** |
+| 关闭档案 | 点击 **×** 或按 **Esc**，当前观察视角会保留 |
+| 切换语言 | 打开地球图标菜单，选择语言或 **跟随系统** |
+| 播放或静音 | 打开 **声音** 面板，点击播放或静音 |
+| 用键盘调节音量 | 聚焦音量条后使用方向键；Home/End 分别设为 0%/100% |
 
-晨昏线由当前 UTC 太阳位置实时计算。总览视图展示日地月空间关系和双轨道线；地球视图展示定位点的真实昼夜分界，夜面叠加 NASA Black Marble 城市灯光。
+手机上可左右滑动目的地导航。资料卡从右侧滑入，内容可独立滚动。
 
-页面启动时地球以 600× 真实速度高速旋转（让人一眼看到它在动）。
-
-定位完成后，3 秒内把相机 tween 到访客位置，同时把转速平滑减速到 1×。
-
-顶栏的 4 视图 tabs 切换 总览 / 太阳 / 地球 / 月球；拖拽旋转，滚轮缩放。
-
-## 特性
-
-- **实时昼夜交替** — 太阳位置由当前 UTC 时间计算，晨昏线每帧更新
-- **日地月系统（SEM）** — v1.1：4 视图 tabs（总览/太阳/地球/月球），相机姿态确定性，地球视角的光照方向就是场景里的真实太阳（不再是伪造的 DirectionalLight）
-- **统一天体状态** — 单一 `celestialState(instant)` 是太阳方向、地球姿态、月球位置和月相的唯一来源；场景 / 材质 / 相机 / InfoCard 都从同一状态读取
-- **8 阶段月历** — moonPhase() 返回 8 阶段名 + 几何照度，InfoCard 展示
-- **1:1 地球自转** — 与现实同步（24 小时 / 圈）
-- **自动定位视角** — 初始镜头对正你所在位置（IP API + `Intl` 兜底）
-- **拖拽 + 缩放** — `OrbitControls` 直观交互
-- **夜面城市灯光** — NASA Black Marble 真实城市灯光纹理
-- **多语言 UI** — 开箱即用 zh-CN / en-US，通过 `window.appI18n.registerLocale()` 支持自定义语言包
-- **Dev URL 参数** — `?lan=en-US&loc=34.04,-118.25,-7&tz=America/Los_Angeles` 一键强制语言 + 定位 + IANA 时区名（截图 / 演示 / 测试用，无需 VPN）
-- **本地自托管字体** — Orbitron / Inter / JetBrains Mono 以 woff2 形式本地提供，零 Google Fonts CDN 依赖
-- **响应式布局** — 兼容移动端 + 桌面，使用 TailwindCSS
-- **纯前端** — 单 Vite + TypeScript 代码库，可零配置部署到 GitHub Pages / Vercel / Netlify
-
-## 技术栈
-
-| 层级 | 选型 |
+| 地球与所在地视角 | 土星与资料卡 |
 | --- | --- |
-| 渲染 | [Three.js](https://threejs.org/) r160 |
-| 构建 | [Vite](https://vitejs.dev/) 5 + TypeScript 5 |
-| 样式 | [TailwindCSS](https://tailwindcss.com/) 3 |
-| 交互 | `three/examples/jsm/controls/OrbitControls` |
-| 定位 | `ipapi.co` / `ipwho.is`（CORS 友好，无需 key） |
-| 测试 | [Vitest](https://vitest.dev/) |
+| ![地球近景](./docs/screenshots/zh-CN.png) | ![土星光环和物理资料](./docs/screenshots/zh-CN-saturn.png) |
 
-## 快速开始
+<details>
+<summary>查看手机版布局</summary>
 
-环境要求：Node.js ≥ 18，[pnpm](https://pnpm.io/) ≥ 8（或 `npm` / `yarn`）。
+![手机版全景](./docs/screenshots/zh-CN-mobile-overview.png)
+
+</details>
+
+## 时间、比例与画面
+
+同一时刻，世界各地访问者看到的天体位置相同。时区只影响时间显示和地球的初始观察方向，不会改变行星轨道。地球视角采用所在时区的代表地点，并非精确 GPS 定位；资料卡还会显示该观察点附近的日出、日落时间和月面照明比例。
+
+**天体大小与轨道距离分别缩放**，让内外行星可以清晰地出现在同一画面中。轨道线根据天文位置采样生成。资料卡里的实际距离取自未经缩放的坐标，不是画面中的视觉间距。
+
+行星直径采用体积等效平均值。自转周期相对恒星测量，因此地球约为 **23 小时 56 分钟**；金星和天王星标注为逆行。巨行星采用 JPL 自转参考值，太阳则展示赤道自转约值。月球约 27.3 天绕地球一周，与约 29.5 天的月相循环有所不同。
+
+天文计算使用 [Astronomy Engine](https://github.com/cosinekitty/astronomy)。自动测试将八大行星和月球与 2000、2026、2040 年的 27 个 [JPL Horizons](https://ssd.jpl.nasa.gov/horizons/) 样本进行对照，这些样本中的最大方向偏差约为 15 角秒。表面纹理和装饰性星空不代表实时影像或观测星图。
+
+## 一些使用细节
+
+全站文字不低于 14px，支持可见的键盘焦点、定制语言与声音控件，以及系统减少动态效果的偏好。较慢的设备会自动降低三维画面分辨率，界面文字保持清晰。页面会记住手动语言选择和音量；每次新访问默认安静。切到后台时暂停渲染与音乐，返回后重新同步当前时间。
+
+需要支持 **WebGL 2** 的现代浏览器。如果无法显示场景，可启用硬件加速或换一个浏览器。部分纹理加载失败时仍可继续探索。图片、字体、音乐和计算均随应用提供，无需注册账号、GPS 授权或调用定位服务。
+
+<details>
+<summary>在自己的电脑上运行</summary>
+
+准备 Node.js 22 或更新版本，以及 pnpm。
 
 ```bash
-# 安装依赖
-pnpm install
-
-# 启动开发服务器
+pnpm install --frozen-lockfile
 pnpm dev
-# → http://localhost:5173
+```
 
-# 生产构建
-pnpm build
+打开终端显示的本地地址即可。
 
-# 预览生产产物
-pnpm preview
-
-# 运行测试
+```bash
+pnpm typecheck
 pnpm test
+pnpm test:e2e
+pnpm build
+pnpm preview
 ```
 
-## 项目结构
+浏览器测试需要 Playwright Chromium，可用 `pnpm exec playwright install chromium` 安装。
+生产文件输出到 `dist/`，支持静态托管和子目录部署。
 
-```dir
-3d-earth-simulator/
-├── public/                 # 静态资源（纹理、字体）
-├── src/
-│   ├── main.ts             # 入口
-│   ├── app.ts              # 应用初始化
-│   ├── scene/              # Three.js 场景模块
-│   ├── shaders/            # GLSL 着色器（地球昼夜、大气层）
-│   ├── geo/                # 地理位置逻辑
-│   ├── i18n/               # 多语言系统
-│   ├── ui/                 # UI 组件（顶栏、信息卡等）
-│   ├── utils/              # 太阳 / 时间工具
-│   ├── styles/             # TailwindCSS + 全局样式
-│   └── types/              # TypeScript 类型声明
-├── tests/                  # Vitest 单元测试
-├── index.html              # Vite 入口
-├── vite.config.ts
-├── tailwind.config.js
-├── tsconfig.json
-├── package.json
-├── LICENSE
-└── NOTICES.md
-```
+</details>
 
-## 浏览器支持
+## 致谢与授权
 
-- Chrome / Edge ≥ 100
-- Firefox ≥ 100
-- Safari ≥ 15
-- Mobile Safari / Chrome Android（响应式布局）
+项目代码采用 [MIT 协议](./LICENSE)，第三方素材遵循各自的授权。
 
-需支持 WebGL 2。**不**提供 WebGL 1 降级。
+- [Three.js](https://threejs.org/) 与 [Astronomy Engine](https://github.com/cosinekitty/astronomy)：三维渲染与天文计算，MIT。
+- [NASA / JPL](https://ssd.jpl.nasa.gov/planets/phys_par.html)：物理参数与轨道参考数据。
+- [Solar System Scope](https://www.solarsystemscope.com/textures/)：天体与光环纹理，CC BY 4.0；适用文件已转为 WebP。
+- [yd 的 Galactic Temple](https://opengameart.org/content/galactic-temple)：环境音乐，CC0。
+- Inter、JetBrains Mono、Orbitron：字体，SIL Open Font License。
 
-## 自定义
-
-### 运行时切换语言
-
-打开浏览器控制台：
-
-```js
-window.appI18n.registerLocale('ja-JP', {
-  'tz.label': 'タイムゾーン',
-  'time.label': '現在時刻',
-  // ...
-});
-window.appI18n.setLocale('ja-JP');
-```
-
-## License
-
-[MIT](./LICENSE) — 个人和商业用途免费。
-
-## 致谢
-
-- [Three.js](https://threejs.org/) — 渲染引擎
-- [NASA Visible Earth](https://visibleearth.nasa.gov/) — Blue Marble + Black Marble 纹理（公共领域）
-- [Google Fonts](https://fonts.google.com/) — Orbitron、Inter、JetBrains Mono（OFL 协议）
-
-完整的第三方 License 列表见 [NOTICES.md](./NOTICES.md)。
+素材清单、修改说明和许可证全文见 [第三方授权说明](./NOTICES.md)。
