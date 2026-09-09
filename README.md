@@ -10,10 +10,10 @@ A quiet window into our solar system. Explore the Sun, all eight planets, and th
 
 Start with the whole solar system, then get closer to any world. Follow Earth's day and night, discover Saturn's rings, or find Neptune on the edge of your view.
 
-- **Real time, 1:1.** Positions and rotation follow your device's clock. Nothing speeds up when you open the page.
+- **Real time or fast forward.** Start at 1:1, or advance 30 days per second. Restore the current time with one click.
 - **Ten destinations.** The Sun, Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune, and our Moon.
 - **A profile for every world.** Read a short introduction, diameter, orbital period, rotation period, and current distance, with links to the data sources.
-- **A way to find your bearings.** Edge arrows point toward worlds outside your view. Crowded or hidden destinations remain available in the navigation and “More destinations” menu.
+- **A way to find your bearings.** Edge arrows point toward worlds outside your view. Every world remains available in the destination bar.
 - **Your language and local time.** English and Simplified Chinese are included. The language menu supports additional language packs and a “Follow system” setting.
 - **An optional soundtrack.** Turn on the space ambient track, adjust the volume, or enjoy the silence. Music starts only when you ask it to.
 
@@ -23,7 +23,9 @@ Start with the whole solar system, then get closer to any world. Follow Earth's 
 | --- | --- |
 | Visit a world | Select its name in the navigation, click the planet itself, or click its label |
 | Look around | Drag the scene; use the wheel or pinch to zoom |
-| Find another planet | Select an edge arrow or open “More destinations” |
+| Find another planet | Select an edge arrow or use the destination bar |
+| Advance the simulation | Select **Fast forward**; one second advances 30 days |
+| Restore the current time | Select **Back to live** |
 | Return to the full system | Select **Solar system** |
 | Close a profile | Select **×** or press **Esc**; your viewpoint stays in place |
 | Change the language | Open the globe menu and choose a language or **Follow system** |
@@ -45,6 +47,8 @@ On a phone, swipe the destination bar to find more planets. Profiles slide in fr
 
 ## Time, scale, and what you see
 
+Your local clock includes the year and always shows the actual time. Fast forward displays a separate simulated date and advances all rotations, orbits, phases and distances together. “Back to live” restores the current instant.
+
 The same instant produces the same planetary positions everywhere on Earth. Your time zone changes the clock display and the initial Earth viewpoint; it does not move the planets. Earth opens toward a representative location for your time zone, rather than a precise GPS location. Its profile also shows approximate local sunrise, sunset, and the illuminated fraction of the Moon.
 
 **Sizes and distances are scaled separately** so that inner and outer planets can share the screen. Orbit guides follow sampled astronomical positions. Profile distances come from the unscaled coordinates, not from the displayed spacing.
@@ -55,7 +59,7 @@ Astronomical calculations use [Astronomy Engine](https://github.com/cosinekitty/
 
 ## Small details, considered
 
-The interface uses text of at least 14px, visible keyboard focus, styled language and audio controls, and reduced-motion preferences. On slower devices, the scene can lower its rendering resolution while interface text stays sharp. It remembers your language choice and volume. Each new visit starts quietly; background tabs pause rendering and music, and returning synchronizes the scene to the current time.
+The interface uses text of at least 14px, visible keyboard focus, styled language and audio controls, and reduced-motion preferences. On slower devices, the scene can lower its rendering resolution while interface text stays sharp. It remembers your language choice and volume. Each new visit starts quietly; background tabs pause rendering and music, and returning synchronizes the scene to the active clock. Fast forward continues to account for elapsed time while the page is hidden.
 
 A modern browser with **WebGL 2** is required. If the scene cannot start, enable hardware acceleration or try another browser. A failed surface texture does not stop you from navigating the system. All visual assets, fonts, music, and calculations are served with the app; no account, GPS permission, or geolocation service is required.
 
@@ -90,7 +94,7 @@ Code: [MIT](./LICENSE). Third-party assets keep their own licenses.
 - [Three.js](https://threejs.org/) and [Astronomy Engine](https://github.com/cosinekitty/astronomy) — rendering and astronomy, MIT.
 - [NASA / JPL](https://ssd.jpl.nasa.gov/planets/phys_par.html) — physical and orbital reference data.
 - [Solar System Scope](https://www.solarsystemscope.com/textures/) — surface and ring textures, CC BY 4.0, converted to WebP where applicable.
-- [Galactic Temple by yd](https://opengameart.org/content/galactic-temple) — ambient music, CC0.
+- [Adrift Among Infinite Stars by Scott Buckley](https://www.scottbuckley.com.au/library/adrift-among-infinite-stars/) — contemplative piano, synths and strings, CC BY 4.0.
 - Inter, JetBrains Mono, and Orbitron — fonts, SIL Open Font License.
 
 See [Third-party notices](./NOTICES.md) for asset details, changes, and license texts.
