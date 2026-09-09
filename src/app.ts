@@ -14,6 +14,7 @@ export async function initApp(): Promise<() => void> {
   let scene: SolarSystemScene | undefined;
   let selected: ViewId = "overview";
   let showOrbits = true;
+  let advancing = false;
   const observer = observerContext();
   const ui = new ExplorerUI({
     observer,
@@ -31,17 +32,18 @@ export async function initApp(): Promise<() => void> {
       void audio.toggle();
     },
     onVolume: (volume) => audio.setVolume(volume),
+    onAdvance: () => {
+      advancing = !advancing;
+      scene?.setAdvancing(advancing);
+      ui.setAdvancing(advancing);
+    },
   });
   root.replaceChildren(ui.element);
-  const directions = new DirectionIndicators(
-    ui.labels,
-    (id) => {
-      selected = id;
-      ui.setSelection(id);
-      scene?.select(id);
-    },
-    (ids) => ui.showMore(ids),
-  );
+  const directions = new DirectionIndicators(ui.labels, (id) => {
+    selected = id;
+    ui.setSelection(id);
+    scene?.select(id);
+  });
   const audio = new AmbientAudio((state) => ui.updateAudio(state));
   ui.updateAudio(audio.state);
   ui.update(solarState(new Date()));

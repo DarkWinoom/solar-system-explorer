@@ -19,6 +19,7 @@ interface UIOptions {
   onLabels: (visible: boolean) => void;
   onAudio: () => void;
   onVolume: (volume: number) => void;
+  onAdvance: () => void;
 }
 
 export class ExplorerUI {
@@ -31,6 +32,8 @@ export class ExplorerUI {
   private readonly unsubscribe: () => void;
   private readonly slider: VolumeSlider;
   private lastSecond = -1;
+  private advancing = false;
+  private lastSimulationPaint = 0;
   private lastSunDay = "";
   private currentState?: SolarState;
   private audioState: AudioState = {
@@ -48,7 +51,7 @@ export class ExplorerUI {
     this.element.innerHTML = `
       <header class="topbar">
         <button class="brand" data-view="overview" aria-label="ORBITAL"><span class="brand-orbit">${icon("orbit")}</span><span>ORBITAL<small data-i18n="app.title"></small></span></button>
-        <span class="header-status"><span class="live-dot"></span><span data-i18n="ui.live"></span></span>
+        <span class="header-status"><span class="live-dot"></span><span id="time-mode"></span></span>
         <div class="tools">
           <button class="tool toggle" data-action="orbits" aria-pressed="true">${icon("orbit")}<span data-i18n="ui.orbits"></span></button>
           <button class="tool toggle labels-tool" data-action="labels" aria-pressed="true">${icon("focus")}<span data-i18n="ui.labels"></span></button>
@@ -57,26 +60,23 @@ export class ExplorerUI {
               <p class="eyebrow" data-i18n="ui.audio"></p>
               <button class="play-button" data-action="audio">${icon("sound")}<span></span></button>
               <div class="volume-heading"><span data-i18n="ui.volume"></span><output id="volume-value">25%</output></div><div id="slider-slot"></div>
-              <p id="audio-hint" role="status"></p><a class="credit" href="https://opengameart.org/content/galactic-temple" target="_blank" rel="noreferrer" data-i18n="ui.soundCredit"></a>
+              <p id="audio-hint" role="status"></p><a class="credit" href="https://www.scottbuckley.com.au/library/adrift-among-infinite-stars/" target="_blank" rel="noreferrer" data-i18n="ui.soundCredit"></a>
             </section>
           </div>
           <div class="popover-wrap"><button class="tool language-tool" id="language-trigger" data-popover="language-menu" aria-haspopup="menu" aria-controls="language-menu" aria-expanded="false">${icon("globe")}<span id="language-label"></span>${icon("down")}</button><div class="popover language-menu" id="language-menu" role="menu" hidden></div></div>
           <div class="popover-wrap"><button class="tool help-tool" id="help-trigger" data-popover="help-menu" aria-expanded="false" aria-controls="help-menu">${icon("info")}</button><section class="popover help-menu" id="help-menu" hidden><p class="eyebrow" data-i18n="ui.help"></p><p data-i18n="ui.model"></p><p data-i18n="ui.precision"></p><p data-i18n="ui.unitsNote"></p><p data-i18n="ui.controls"></p></section></div>
         </div>
       </header>
-      <nav class="navigation"><p class="eyebrow nav-caption" data-i18n="ui.destinations"></p><button class="nav-overview active" data-view="overview" aria-pressed="true">${icon("orbit")}<span data-i18n="ui.overview"></span>${icon("arrow")}</button><div class="nav-divider"></div><div id="body-list"></div><p class="nav-note"><span>+</span><span data-i18n="app.tagline"></span></p></nav>
+      <nav class="navigation"><button class="nav-overview active" data-view="overview" aria-pressed="true">${icon("orbit")}<span data-i18n="ui.overview"></span>${icon("arrow")}</button><div class="nav-divider"></div><div id="body-list"></div></nav>
       <main class="stage" id="stage">
-        <div class="scene-heading"><p class="eyebrow" id="scene-kicker"></p><h1 id="scene-title"></h1><p id="scene-description"></p></div>
-        <section class="system-summary" id="system-summary"><p class="eyebrow" data-i18n="ui.neighbors"></p><div class="counts"><div><strong>08</strong><span data-i18n="ui.planets"></span></div><div><strong>01</strong><span data-i18n="ui.star"></span></div><div><strong>01</strong><span data-i18n="ui.moonCount"></span></div></div><p data-i18n="ui.choose"></p></section>
+        <div class="scene-heading"><h1 id="scene-title"></h1></div>
         <div id="viewport" class="viewport"></div><div id="labels" class="label-layer"></div>
-        <div class="scene-foot">${icon("focus")}<span data-i18n="ui.select"></span></div>
         <button class="reopen" id="reopen" data-action="details" hidden><span data-i18n="ui.details"></span>${icon("arrow")}</button>
         <div class="loading-state" id="loading-state" role="status"><span class="loader-orbit"></span><span data-i18n="ui.loading"></span></div>
         <div class="scene-message" id="scene-message" role="status" hidden></div>
-        <section class="popover more-menu" id="more-menu" role="menu" hidden></section>
       </main>
       <aside class="body-card" id="body-card" aria-labelledby="card-title" hidden><div class="card-top"><span class="eyebrow" data-i18n="ui.profile"></span><button class="close" id="close-card" data-action="close">${icon("close")}</button></div><div id="card-content"></div><a class="source" id="card-source" target="_blank" rel="noreferrer"><span data-i18n="ui.source"></span>${icon("arrow")}</a><button class="back-overview" data-view="overview">${icon("orbit")}<span data-i18n="ui.back"></span>${icon("arrow")}</button></aside>
-      <footer class="statusbar"><div class="time"><span class="live-dot"></span><div><span class="eyebrow" data-i18n="ui.localTime"></span><div class="clock-row"><time id="local-time"></time><span id="timezone"></span></div></div></div><p class="interaction-help" data-i18n="ui.controls"></p><button class="scale-note" data-action="help">${icon("info")}<span data-i18n="ui.scale"></span></button></footer>
+      <footer class="statusbar"><div class="time"><span class="live-dot"></span><div><span class="eyebrow" data-i18n="ui.localTime"></span><div class="clock-row"><time id="local-time"></time><span id="timezone"></span></div></div></div><div class="time-controls"><div id="simulation-clock" hidden><span data-i18n="ui.advanceRate"></span><time id="simulation-time"></time></div><button class="advance-button" id="advance-toggle" data-action="advance" aria-pressed="false" disabled></button></div><button class="scale-note" data-action="help">${icon("info")}<span data-i18n="ui.scale"></span></button></footer>
       <span class="sr-only" id="selection-announcement" role="status" aria-live="polite"></span>`;
     this.viewport = this.find("viewport");
     this.labels = this.find("labels");
@@ -91,7 +91,7 @@ export class ExplorerUI {
         if (
           this.activePopover &&
           event.target instanceof Element &&
-          !event.target.closest(".popover-wrap, .more-menu, .more-destinations")
+          !event.target.closest(".popover-wrap")
         )
           this.closePopover(false);
       },
@@ -123,7 +123,7 @@ export class ExplorerUI {
     document.title = `ORBITAL · ${i18n.t("app.title")}`;
     this.element
       .querySelector("nav")!
-      .setAttribute("aria-label", i18n.t("ui.destinations"));
+      .setAttribute("aria-label", i18n.t("ui.navigation"));
     this.find("language-trigger").setAttribute(
       "aria-label",
       i18n.t("ui.language"),
@@ -174,12 +174,34 @@ export class ExplorerUI {
       if (checked) button.insertAdjacentHTML("beforeend", icon("check"));
       menu.append(button);
     }
+    this.setAdvancing(this.advancing);
     this.slider.setLabel(i18n.t("ui.volume"));
     this.updateAudio(this.audioState);
     this.updateSelection();
     this.lastSecond = -1;
     this.lastSunDay = "";
     if (this.currentState) this.update(this.currentState);
+  }
+
+  setAdvancing(enabled: boolean): void {
+    this.advancing = enabled;
+    this.element.classList.toggle("is-advancing", enabled);
+    this.find("simulation-clock").hidden = !enabled;
+    this.find("time-mode").textContent = i18n.t(
+      enabled ? "ui.simulating" : "ui.live",
+    );
+    const button = this.find<HTMLButtonElement>("advance-toggle");
+    button.setAttribute("aria-pressed", String(enabled));
+    button.setAttribute(
+      "aria-label",
+      i18n.t(enabled ? "ui.restoreLive" : "ui.advance"),
+    );
+    button.innerHTML = `${icon(enabled ? "reset" : "advance")}<span></span>`;
+    button.querySelector("span")!.textContent = i18n.t(
+      enabled ? "ui.restoreLive" : "ui.advance",
+    );
+    this.lastSecond = -1;
+    this.lastSunDay = "";
   }
 
   setSelection(view: ViewId): void {
@@ -209,16 +231,9 @@ export class ExplorerUI {
         button.classList.toggle("active", selected);
         button.setAttribute("aria-pressed", String(selected));
       });
-    this.find("system-summary").hidden = !overview;
-    this.find("scene-kicker").textContent = overview
-      ? i18n.t("ui.overviewKicker")
-      : `${i18n.t("ui.destination")} / ${BODY_BY_ID[this.selected as BodyId].order}`;
     this.find("scene-title").textContent = overview
       ? i18n.t("app.heading")
       : i18n.t(`bodies.${this.selected}.name`);
-    this.find("scene-description").textContent = i18n.t(
-      overview ? "app.intro" : "app.destination",
-    );
     if (!overview) this.renderCard(this.selected as BodyId);
   }
 
@@ -282,15 +297,19 @@ export class ExplorerUI {
 
   update(state: SolarState): void {
     this.currentState = state;
-    const second = Math.floor(state.instant / 1000);
-    if (second === this.lastSecond) return;
+    const second = Math.floor(Date.now() / 1000);
+    const repaintSimulation =
+      this.advancing && performance.now() - this.lastSimulationPaint >= 200;
+    if (second === this.lastSecond && !repaintSimulation) return;
+    this.lastSimulationPaint = performance.now();
     this.lastSecond = second;
-    const date = new Date(state.instant),
+    const date = new Date(),
       timeZone = this.options.observer.timeZone;
     const clock = this.find<HTMLTimeElement>("local-time");
     clock.dateTime = date.toISOString();
     clock.textContent = new Intl.DateTimeFormat(i18n.getLocale(), {
       timeZone,
+      year: "numeric",
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
@@ -299,6 +318,17 @@ export class ExplorerUI {
       hourCycle: "h23",
     }).format(date);
     this.find("timezone").textContent = timeZone;
+    if (this.advancing) {
+      const simulated = new Date(state.instant);
+      const display = this.find<HTMLTimeElement>("simulation-time");
+      display.dateTime = simulated.toISOString();
+      display.textContent = new Intl.DateTimeFormat(i18n.getLocale(), {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(simulated);
+    }
     if (this.selected !== "overview" && this.selected !== "sun") {
       const body = state.bodies[this.selected];
       const moon = this.selected === "moon";
@@ -309,7 +339,7 @@ export class ExplorerUI {
       if (distance)
         distance.textContent = `${this.number(value, moon ? 0 : 3)} ${i18n.t(moon ? "units.km" : "units.au")}`;
     }
-    if (this.selected === "earth") {
+    if (this.selected === "earth" && !this.advancing) {
       this.find("moon-phase").textContent = new Intl.NumberFormat(
         i18n.getLocale(),
         { style: "percent", maximumFractionDigits: 1 },
@@ -365,27 +395,10 @@ export class ExplorerUI {
     );
   }
 
-  showMore(ids: BodyId[]): void {
-    const menu = this.find("more-menu");
-    menu.replaceChildren();
-    for (const id of ids) {
-      const button = document.createElement("button");
-      button.className = "menu-option";
-      button.dataset.view = id;
-      button.setAttribute("role", "menuitem");
-      button.tabIndex = -1;
-      button.textContent = i18n.t(`bodies.${id}.name`);
-      menu.append(button);
-    }
-    this.openPopover(
-      "more-menu",
-      this.labels.querySelector<HTMLButtonElement>(".more-destinations")!,
-    );
-  }
-
   ready(): void {
     this.find("loading-state").hidden = true;
     this.viewport.dataset.ready = "true";
+    this.find<HTMLButtonElement>("advance-toggle").disabled = false;
     this.translate();
   }
   message(key: string, fatal = false): void {
@@ -444,6 +457,9 @@ export class ExplorerUI {
       return;
     }
     switch (target.dataset.action) {
+      case "advance":
+        this.options.onAdvance();
+        break;
       case "orbits":
       case "labels": {
         const enabled = target.getAttribute("aria-pressed") !== "true";

@@ -69,10 +69,12 @@ describe("ambient audio", () => {
     expect(player.state.volume).toBe(0.7);
     expect(player.state.playing).toBe(true);
   });
-  it("uses MP3 where OGG is unavailable", async () => {
+  it("uses browser-compatible MP3", async () => {
     FakeAudio.instances[0].canPlayType = () => "";
     await player.toggle();
-    expect(FakeAudio.instances[0].src).toContain("galactic-temple.mp3");
+    expect(FakeAudio.instances[0].src).toContain(
+      "adrift-among-infinite-stars.mp3",
+    );
   });
   it("reports playback rejection without crashing the application", async () => {
     FakeAudio.instances[0].play.mockRejectedValueOnce(

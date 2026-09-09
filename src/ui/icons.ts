@@ -1,4 +1,6 @@
 const paths: Record<string, string> = {
+  advance: '<path d="m3 5 9 7-9 7zm10 0 9 7-9 7z"/>',
+  reset: '<path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/>',
   orbit:
     '<circle cx="12" cy="12" r="7"/><ellipse cx="12" cy="12" rx="11" ry="4" transform="rotate(-30 12 12)"/><circle cx="12" cy="12" r="1" fill="currentColor"/>',
   close: '<path d="m6 6 12 12M6 18 18 6"/>',

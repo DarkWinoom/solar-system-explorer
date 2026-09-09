@@ -6,6 +6,57 @@ async function open(page: Page) {
   await expect(page.locator("#loading-state")).toBeHidden();
 }
 
+test("shows the year, advances the simulation, and returns to live time", async ({
+  page,
+}) => {
+  await open(page);
+  await expect(page.locator("#local-time")).toContainText(
+    String(new Date().getFullYear()),
+  );
+  for (const text of [
+    "探索目的地",
+    "一颗恒星，八大行星",
+    "十个世界",
+    "我们的宇宙邻里",
+    "更多目的地",
+  ]) {
+    await expect(page.locator("body")).not.toContainText(text);
+  }
+  await page.locator("#advance-toggle").click();
+  await expect(page.locator("#advance-toggle")).toHaveText("恢复实时");
+  await expect(page.locator("#simulation-time")).toHaveAttribute(
+    "datetime",
+    /T/,
+  );
+  const first = Date.parse(
+    (await page.locator("#simulation-time").getAttribute("datetime"))!,
+  );
+  await page.waitForTimeout(2000);
+  const last = Date.parse(
+    (await page.locator("#simulation-time").getAttribute("datetime"))!,
+  );
+  expect((last - first) / 86400000).toBeGreaterThan(40);
+  expect((last - first) / 86400000).toBeLessThan(100);
+  expect(
+    Math.abs(
+      Date.parse(
+        (await page.locator("#local-time").getAttribute("datetime"))!,
+      ) - Date.now(),
+    ),
+  ).toBeLessThan(3000);
+  await page.locator("#advance-toggle").click();
+  await expect(page.locator("#simulation-clock")).toBeHidden();
+  await expect(page.locator("#advance-toggle")).toHaveText("模拟推进");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#advance-toggle").click();
+  await expect(page.locator("#advance-toggle")).toBeInViewport();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("starts live in overview, selects a sphere, and visits every body", async ({
   page,
 }) => {

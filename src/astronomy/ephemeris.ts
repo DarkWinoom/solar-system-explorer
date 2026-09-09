@@ -13,6 +13,7 @@ import {
 } from "astronomy-engine";
 import { Matrix4, Quaternion, Vector3 } from "three";
 import { BODIES, BODY_BY_ID, type BodyId } from "../data/bodies";
+import { SimulationClock } from "./SimulationClock";
 
 export const DAY_MS = 86_400_000;
 export const AU_KM = 149_597_870.7;
@@ -140,8 +141,10 @@ export class RealTimeEphemeris {
   private start: SolarState;
   private end: SolarState;
   readonly state: SolarState;
+  readonly clock: SimulationClock;
 
-  constructor(private readonly now: () => number = Date.now) {
+  constructor(now: () => number = Date.now, elapsed?: () => number) {
+    this.clock = new SimulationClock(now, elapsed);
     const instant = Math.floor(now() / 1000) * 1000;
     this.start = solarState(new Date(instant));
     this.end = solarState(new Date(instant + 1000));
@@ -149,7 +152,11 @@ export class RealTimeEphemeris {
   }
 
   update(): SolarState {
-    const instant = this.now();
+    const instant = this.clock.now();
+    if (this.clock.isAdvancing) {
+      Object.assign(this.state, solarState(new Date(instant)));
+      return this.state;
+    }
     if (instant < this.start.instant || instant >= this.end.instant) {
       const second = Math.floor(instant / 1000) * 1000;
       this.start =

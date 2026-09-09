@@ -58,6 +58,7 @@ export class SolarSystemScene {
   private pointerStart: { x: number; y: number; id: number } | null = null;
   private multiPointer = false;
   private guideEpoch = 0;
+  private lastGuideUpdate = 0;
   private guideVisible = true;
   private disposed = false;
   private ready = false;
@@ -141,7 +142,7 @@ export class SolarSystemScene {
     for (const { id, color } of BODIES) {
       if (id === "sun") continue;
       const geometry = new BufferGeometry().setFromPoints(
-        orbitPoints(id, instant),
+        orbitPoints(id, instant, this.ephemeris.clock.isAdvancing ? 256 : 512),
       );
       const existing = this.guides.get(id);
       if (existing) {
@@ -160,6 +161,7 @@ export class SolarSystemScene {
       }
     }
     this.guideEpoch = instant;
+    this.lastGuideUpdate = performance.now();
   }
 
   private tick = (now: number): void => {
@@ -180,7 +182,11 @@ export class SolarSystemScene {
       this.frameAverage = 16;
     }
     const state = this.ephemeris.update();
-    if (Math.abs(state.instant - this.guideEpoch) >= DAY_MS) this.buildGuides();
+    if (
+      Math.abs(state.instant - this.guideEpoch) >= DAY_MS &&
+      (!this.ephemeris.clock.isAdvancing || now - this.lastGuideUpdate >= 500)
+    )
+      this.buildGuides();
     this.bodies.forEach((body) =>
       body.update(state.bodies[body.definition.id]),
     );
@@ -205,6 +211,12 @@ export class SolarSystemScene {
       guide.material.opacity = view === id ? 0.4 : 0.27;
     }
     this.renderer.domElement.dataset.view = view;
+  }
+
+  setAdvancing(enabled: boolean): void {
+    this.ephemeris.clock.setAdvancing(enabled);
+    this.ephemeris.update();
+    this.buildGuides();
   }
 
   setOrbits(visible: boolean): void {

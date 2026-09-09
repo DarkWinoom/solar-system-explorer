@@ -98,9 +98,7 @@ export class AmbientAudio {
           .createMediaElementSource(this.audio)
           .connect(this.gain)
           .connect(this.context.destination);
-        const file = this.audio.canPlayType('audio/ogg; codecs="vorbis"')
-          ? "galactic-temple.ogg"
-          : "galactic-temple.mp3";
+        const file = "adrift-among-infinite-stars.mp3";
         this.audio.src = `${import.meta.env.BASE_URL}audio/${file}`;
       }
       await this.context.resume();

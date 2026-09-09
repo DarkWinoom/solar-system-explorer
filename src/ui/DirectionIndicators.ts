@@ -32,8 +32,6 @@ const intersects = (a: Rectangle, b: Rectangle) =>
 export class DirectionIndicators {
   private readonly labels = new Map<BodyId, HTMLButtonElement>();
   private readonly arrows = new Map<BodyId, HTMLButtonElement>();
-  private readonly more: HTMLButtonElement;
-  private overflow: BodyId[] = [];
   private readonly unsubscribe: () => void;
   private labelsVisible = true;
   private readonly sizes = new Map<string, { width: number; height: number }>();
@@ -42,7 +40,6 @@ export class DirectionIndicators {
   constructor(
     private readonly layer: HTMLElement,
     private readonly onSelect: (id: BodyId) => void,
-    private readonly onMore: (ids: BodyId[]) => void,
   ) {
     for (const body of BODIES) {
       const label = document.createElement("button");
@@ -58,11 +55,6 @@ export class DirectionIndicators {
       this.arrows.set(body.id, arrow);
       layer.append(label, arrow);
     }
-    this.more = document.createElement("button");
-    this.more.className = "more-destinations";
-    this.more.hidden = true;
-    this.more.addEventListener("click", () => this.onMore(this.overflow));
-    layer.append(this.more);
     this.unsubscribe = i18n.subscribe(() => this.translate());
     this.translate();
   }
@@ -101,14 +93,11 @@ export class DirectionIndicators {
     const safe = {
       left: 20,
       right: w - 20,
-      top: mobile ? 160 : 150,
+      top: mobile ? 72 : 90,
       bottom: h - 65,
     };
     const occupied: Rectangle[] = [];
-    if (selected === "overview" && w > 800)
-      occupied.push({ x: w - 265, y: 0, w: 265, h: 220 });
     const edges: Indicator[] = [];
-    this.overflow = [];
     for (const definition of BODIES) {
       const { id } = definition,
         label = this.labels.get(id)!,
@@ -158,24 +147,21 @@ export class DirectionIndicators {
           occupied.push(place);
         } else {
           label.hidden = true;
-          this.overflow.push(id);
         }
       } else {
         if (occluded && projected.visible) {
-          this.overflow.push(id);
           continue;
         }
         edges.push({ id, ...projected });
       }
     }
     for (const side of ["left", "right"] as const) {
-      const { placed, overflow } = separateIndicators(
+      const { placed } = separateIndicators(
         edges.filter((edge) => edge.side === side),
         safe.top + 35,
         safe.bottom - 25,
         64,
       );
-      this.overflow.push(...overflow.map((item) => item.id));
       for (const item of placed) {
         const arrow = this.arrows.get(item.id)!;
         arrow.hidden = false;
@@ -192,9 +178,6 @@ export class DirectionIndicators {
           `rotate(${item.angle}rad)`;
       }
     }
-    this.more.hidden = this.overflow.length === 0;
-    const moreText = `${i18n.t("ui.more")} · ${this.overflow.length}`;
-    if (this.more.textContent !== moreText) this.more.textContent = moreText;
   }
 
   private measure(
