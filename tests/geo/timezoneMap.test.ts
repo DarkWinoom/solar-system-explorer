@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { timezoneToCoord, getSupportedTimezones } from "../../src/geo/timezoneMap";
+import {
+  timezoneToCoord,
+  getSupportedTimezones,
+} from "../../src/geo/timezoneMap";
 
 /**
  * 内置时区 → 经纬度 映射表测试

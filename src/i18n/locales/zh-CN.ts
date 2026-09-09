@@ -1,75 +1,147 @@
-import type { NestedDict } from "../index";
+import type { enUS } from "./en-US";
+type TranslationShape<T> = {
+  [K in keyof T]: T[K] extends string ? string : TranslationShape<T[K]>;
+};
 
-/**
- * 中文（简体）语言包
- *
- * 键命名约定: dot.path.from.root.to.key
- * - app.*: 顶栏 / 全局
- * - ui.*:  UI 组件
- *   - timezone: 时区显示
- *   - time:     时间显示
- *   - sun:      日出日落倒计时
- *   - recenter: 回到默认视角按钮
- *   - help:     操作提示
- *   - locale:   locale 切换按钮标签
- *
- * 阶段 9 落档。
- */
-export const zhCN: NestedDict = {
+export const zhCN: TranslationShape<typeof enUS> = {
   app: {
-    title: "3D 地球模拟器",
+    title: "太阳系探索",
+    tagline: "十个世界，一段旅程。",
+    heading: "我们的太阳系",
+    intro: "一颗恒星，八大行星。探索这片熟悉又陌生的宇宙。",
+    destination: "每一个世界，都有值得靠近的故事。",
   },
   ui: {
-    timezone: {
-      label: "时区",
-    },
-    time: {
-      label: "时间",
-      live: "● 实时",
-    },
+    destinations: "探索目的地",
+    overview: "太阳系全景",
+    overviewKicker: "太阳系 / 全景探索",
+    destination: "探索目的地",
+    profile: "天体档案",
+    neighbors: "我们的宇宙邻里",
+    planets: "行星",
+    star: "恒星",
+    moonCount: "展示的卫星",
+    choose: "从水星到海王星，开启你的下一次探索。",
+    back: "返回太阳系",
+    close: "关闭资料卡",
+    details: "查看资料",
+    follow: "聚焦这个世界",
+    source: "NASA / JPL 数据",
+    language: "语言",
+    systemLanguage: "跟随系统",
+    orbits: "轨道",
+    labels: "标签",
+    audio: "声音",
+    help: "关于当前视图",
+    volume: "音量",
+    play: "播放音乐",
+    mute: "静音",
+    more: "更多目的地",
+    behind: "在你身后",
+    offscreen: "视野之外",
+    occluded: "被天体遮挡",
+    navigate: "转向{name}",
+    canvas: "可交互的三维太阳系",
+    controls: "拖动旋转 · 滚轮或双指缩放",
+    select: "点击行星或名称，开始探索",
+    scale: "大小与距离非等比例",
+    live: "实时 · 1:1",
+    localTime: "本地时间",
+    approximate: "根据时区估计的观察点",
+    manualLocation: "自定义观察点",
+    model:
+      "天体位置按现实时间 1:1 更新。大小与距离分别缩放，以便清晰观察。轨道为采样路径，表面纹理和星空配色为视觉表达。",
+    precision: "行星位置：Astronomy Engine。物理资料：NASA / JPL。",
+    soundCredit: "Galactic Temple · yd · CC0",
+    audioHint: "由你主动开启音乐后才会播放。",
+    loading: "正在准备你的太阳系…",
+    textureError: "部分表面细节未能加载，你仍可探索所有天体。",
+    audioError: "音乐暂时无法播放，请重试。",
+    audioLoading: "正在加载音乐…",
+    webglError: "三维视图需要 WebGL 2。请启用硬件加速或尝试其他浏览器。",
+    contextLost: "图形连接已中断，请刷新后继续探索。",
+    reload: "重新加载",
+    factsNote: "直径采用体积等效平均值。公转与自转周期均相对恒星测量。",
+    giantNote: "巨行星自转采用 JPL 的参考约值。",
+    sunNote: "太阳自转速度随纬度变化：赤道约 25 天，极区约 36 天。",
+    moonNote: "月球绕地球一周约 27.3 天；月相循环约 29.5 天。",
+    retrograde: "逆行",
+    approximateValue: "约",
+    noEvent: "当天无此事件",
+    sunrise: "日出",
+    sunset: "日落",
+    moonPhase: "月面照明比例",
+    observingEarth: "你的地球观察点",
+    notApplicable: "不适用",
+    sunOrbitNote: "在这个日心模型中，太阳位于中心。",
+    unitsNote: "AU 为天文单位，约等于 1.496 亿千米。",
+    dismissed: "资料卡已关闭",
+  },
+  facts: {
+    diameter: "平均直径",
+    approxDiameter: "近似直径",
+    equatorialRotation: "赤道自转周期（约）",
+    orbitalPeriod: "恒星公转周期",
+    lunarOrbit: "绕地球公转周期",
+    rotation: "恒星自转周期",
+    sunDistance: "当前距太阳",
+    earthDistance: "当前距地球",
+  },
+  units: {
+    km: "千米",
+    au: "AU",
+    days: "地球日",
+    years: "地球年",
+    hours: "时",
+    minutes: "分",
+  },
+  categories: {
+    star: "恒星",
+    terrestrial: "类地行星",
+    gasGiant: "气态巨行星",
+    iceGiant: "冰巨行星",
+    satellite: "天然卫星",
+  },
+  bodies: {
     sun: {
-      countdown: {
-        label: "日出日落",
-        sunrise: "距日出",
-        sunset: "距日落",
-        polarDay: "极昼",
-        polarNight: "极夜",
-        unknown: "待定位",
-      },
+      name: "太阳",
+      description: "太阳系唯一的恒星，以光和热滋养着我们的世界。",
+    },
+    mercury: {
+      name: "水星",
+      description: "距离太阳最近的行星，陨石坑遍布它古老的岩石表面。",
+    },
+    venus: {
+      name: "金星",
+      description: "浓厚的二氧化碳大气，让金星成为太阳系最炽热的行星。",
+    },
+    earth: {
+      name: "地球",
+      description: "我们在宇宙中的家园，也是目前唯一已知孕育生命的世界。",
+    },
+    mars: {
+      name: "火星",
+      description: "一颗锈红色的岩石行星，保存着远古河流与湖泊的痕迹。",
+    },
+    jupiter: {
+      name: "木星",
+      description: "太阳系中最大的行星，壮丽的云带间翻涌着巨大风暴。",
+    },
+    saturn: {
+      name: "土星",
+      description: "数不清的冰粒与岩石碎片，围成了这颗气态巨行星的壮丽光环。",
+    },
+    uranus: {
+      name: "天王星",
+      description: "这颗淡蓝色的冰巨行星几乎侧躺着，缓缓绕太阳前行。",
+    },
+    neptune: {
+      name: "海王星",
+      description: "太阳系最遥远的行星，寒冷的大气中呼啸着强劲的风。",
     },
     moon: {
-      label: "月相",
-      phase: {
-        newMoon: "新月",
-        waxingCrescent: "蛾眉月",
-        firstQuarter: "上弦月",
-        waxingGibbous: "盈凸月",
-        fullMoon: "满月",
-        waningGibbous: "亏凸月",
-        lastQuarter: "下弦月",
-        waningCrescent: "残月",
-      },
-    },
-    orbit: {
-      label: "公转",
-      dayProgress: "第 {day} / {total} 天",
-    },
-    viewMode: {
-      overview: "总览",
-      sun: "太阳",
-      earth: "地球",
-      moon: "月球",
-    },
-    recenter: {
-      label: "回到默认视角",
-    },
-    help: {
-      drag: "拖拽旋转",
-      zoom: "滚轮缩放",
-    },
-    locale: {
-      zh: "中文",
-      en: "EN",
+      name: "月球",
+      description: "地球唯一的天然卫星，始终以近乎相同的一面朝向我们的家园。",
     },
   },
 };

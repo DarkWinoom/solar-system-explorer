@@ -1,248 +1,109 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { I18n } from "../../src/i18n";
+import { enUS } from "../../src/i18n/locales/en-US";
+import { zhCN } from "../../src/i18n/locales/zh-CN";
 
-/**
- * I18n 单元测试
- *
- * 覆盖 3 件事(测试细化偏好):
- *   1. t() 翻译正确(基本 / fallback / 缺失 / 参数替换)
- *   2. locale 切换(setLocale / getLocale / subscribe / 持久化)
- *   3. 注册(registerLocale 嵌套 + 平铺 + 合并)
- *  + init() 解析策略(localStorage > navigator > 主语言降级 > default)
- */
-describe("I18n", () => {
-  let i18n: I18n;
+function create() {
+  const locale = new I18n();
+  locale.registerLocale("en-US", enUS, { label: "English" });
+  locale.registerLocale("zh-CN", zhCN, { label: "简体中文" });
+  return locale;
+}
+function keys(object: object, prefix = ""): string[] {
+  return Object.entries(object)
+    .flatMap(([key, value]) =>
+      typeof value === "string"
+        ? [`${prefix}${key}`]
+        : keys(value, `${prefix}${key}.`),
+    )
+    .sort();
+}
+beforeEach(() => localStorage.clear());
+afterEach(() => vi.restoreAllMocks());
 
-  beforeEach(() => {
-    i18n = new I18n();
-    localStorage.clear();
+describe("extensible language registry", () => {
+  it.each([
+    ["zh-TW", "zh-CN"],
+    ["en-GB", "en-US"],
+    ["fr-FR", "en-US"],
+  ])("resolves %s to %s", (browser, expected) => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue([browser]);
+    expect(create().init()).toBe(expected);
   });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it("checks all browser language preferences", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "zh-HK"]);
+    expect(create().init()).toBe("zh-CN");
   });
-
-  // ---- t() ----
-  describe("t()", () => {
-    it("returns translated string for known key", () => {
-      i18n.registerLocale("zh-CN", { app: { title: "3D 地球" } });
-      i18n.setLocale("zh-CN");
-      expect(i18n.t("app.title")).toBe("3D 地球");
-    });
-
-    it("falls back to default locale when key missing in current", () => {
-      i18n.registerLocale("zh-CN", { app: { title: "3D 地球" } });
-      i18n.registerLocale("en-US", { app: { title: "3D Earth" } });
-      // 'ui.button' 在 zh-CN 不存在,en-US 也没有,降级失败
-      i18n.setLocale("zh-CN");
-      expect(i18n.t("ui.button")).toBe("ui.button");
-    });
-
-    it("falls back to default locale when key exists there", () => {
-      i18n.registerLocale("zh-CN", { app: { title: "3D 地球" } });
-      i18n.registerLocale("en-US", {
-        app: { title: "3D Earth" },
-        ui: { ok: "OK" },
-      });
-      // zh-CN 没有 ui.ok,降级到 en-US 拿到
-      // 但当前 locale 解析依赖 registered 列表,需要先让 en-US 在 init fallback 列表里
-      // 手动 setLocale zh-CN,init 不必
-      i18n.setLocale("zh-CN");
-      expect(i18n.t("ui.ok")).toBe("OK");
-    });
-
-    it("returns key when missing in both current and default", () => {
-      i18n.registerLocale("en-US", { app: { title: "X" } });
-      // default = en-US 已注册,没有 'nonexistent' 键
-      expect(i18n.t("nonexistent")).toBe("nonexistent");
-    });
-
-    it("replaces {param} placeholders", () => {
-      i18n.registerLocale("en-US", { greet: "Hello, {name}! You are {age}." });
-      expect(i18n.t("greet", { name: "Alice", age: 30 })).toBe(
-        "Hello, Alice! You are 30."
-      );
-    });
-
-    it("keeps unresolved placeholders when param not provided", () => {
-      i18n.registerLocale("en-US", { greet: "Hello, {name}!" });
-      expect(i18n.t("greet")).toBe("Hello, {name}!");
-    });
+  it("prioritizes URL override over saved preference and browser", () => {
+    localStorage.setItem("orbital.locale", "en-US");
+    expect(create().init([], "zh-CN")).toBe("zh-CN");
   });
-
-  // ---- setLocale + getLocale ----
-  describe("setLocale + getLocale", () => {
-    beforeEach(() => {
-      i18n.registerLocale("zh-CN", { app: { title: "3D 地球" } });
-      i18n.registerLocale("en-US", { app: { title: "3D Earth" } });
-    });
-
-    it("switches active locale", () => {
-      i18n.setLocale("zh-CN");
-      expect(i18n.getLocale()).toBe("zh-CN");
-      i18n.setLocale("en-US");
-      expect(i18n.getLocale()).toBe("en-US");
-    });
-
-    it("does NOT persist to localStorage (项目规则: 不持久化)", () => {
-      i18n.setLocale("zh-CN");
-      expect(localStorage.getItem("locale")).toBeNull();
-    });
-
-    it("warns and ignores unknown locale", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      i18n.setLocale("fr-FR");
-      expect(warn).toHaveBeenCalled();
-      // current 仍是 default (en-US,因为 zh-CN setLocale 没被调用)
-      // 实际上 current 仍是初始 DEFAULT_LOCALE 'en-US'(因为 init 没调过)
-      expect(i18n.getLocale()).toBe("en-US");
-    });
+  it("remembers a manual choice and can return to following the system", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-GB"]);
+    const locale = create();
+    locale.init();
+    locale.setLocale("zh-CN");
+    expect(create().init()).toBe("zh-CN");
+    locale.followSystem();
+    expect(locale.getLocale()).toBe("en-US");
+    expect(locale.isFollowingSystem()).toBe(true);
+    expect(localStorage.getItem("orbital.locale")).toBeNull();
   });
-
-  // ---- subscribe ----
-  describe("subscribe", () => {
-    beforeEach(() => {
-      i18n.registerLocale("zh-CN", { app: { title: "X" } });
-      i18n.registerLocale("en-US", { app: { title: "Y" } });
-    });
-
-    it("notifies on locale change", () => {
-      const fn = vi.fn();
-      i18n.subscribe(fn);
-      i18n.setLocale("zh-CN");
-      expect(fn).toHaveBeenCalledWith("zh-CN");
-      i18n.setLocale("en-US");
-      expect(fn).toHaveBeenCalledWith("en-US");
-      expect(fn).toHaveBeenCalledTimes(2);
-    });
-
-    it("returns unsubscribe function", () => {
-      const fn = vi.fn();
-      const unsub = i18n.subscribe(fn);
-      unsub();
-      i18n.setLocale("zh-CN");
-      expect(fn).not.toHaveBeenCalled();
-    });
+  it("adds a third language at runtime, updates subscribers and falls back for missing keys", () => {
+    const locale = create();
+    locale.init();
+    const listener = vi.fn();
+    locale.subscribe(listener);
+    locale.registerLocale(
+      "ja-JP",
+      { ui: { overview: "太陽系" } },
+      { label: "日本語" },
+    );
+    expect(listener).toHaveBeenCalled();
+    expect(locale.getAvailableLocales()).toEqual(["en-US", "zh-CN", "ja-JP"]);
+    locale.setLocale("ja-JP");
+    expect(locale.t("ui.overview")).toBe("太陽系");
+    expect(locale.t("ui.volume")).toBe("Volume");
+    expect(locale.getLocaleMetadata("ja-JP").label).toBe("日本語");
+    expect(document.documentElement.lang).toBe("ja-JP");
   });
-
-  // ---- registerLocale ----
-  describe("registerLocale", () => {
-    it("registers a new locale from nested dict", () => {
-      i18n.registerLocale("zh-CN", { app: { title: "3D 地球" } });
-      i18n.setLocale("zh-CN");
-      expect(i18n.t("app.title")).toBe("3D 地球");
-    });
-
-    it("registers a new locale from flat dict", () => {
-      i18n.registerLocale("zh-CN", { "app.title": "3D 地球" });
-      i18n.setLocale("zh-CN");
-      expect(i18n.t("app.title")).toBe("3D 地球");
-    });
-
-    it("merges on re-register (later overrides earlier)", () => {
-      i18n.registerLocale("zh-CN", { a: "1", b: "2" });
-      i18n.registerLocale("zh-CN", { b: "overridden", c: "3" });
-      i18n.setLocale("zh-CN");
-      expect(i18n.t("a")).toBe("1");
-      expect(i18n.t("b")).toBe("overridden");
-      expect(i18n.t("c")).toBe("3");
-    });
+  it("supports direction metadata for future right-to-left languages", () => {
+    const locale = create();
+    locale.registerLocale("ar", {}, { label: "العربية", dir: "rtl" });
+    locale.setLocale("ar");
+    expect(document.documentElement.dir).toBe("rtl");
+    locale.setLocale("en-US");
+    expect(document.documentElement.dir).toBe("ltr");
   });
-
-  // ---- init() ----
-  describe("init()", () => {
-    it("uses navigator.language on every call (no localStorage)", () => {
-      vi.stubGlobal("navigator", { language: "zh-CN" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"]);
-      expect(i18n.getLocale()).toBe("zh-CN");
-    });
-
-    it("downgrades by main language (zh-TW → zh-CN)", () => {
-      vi.stubGlobal("navigator", { language: "zh-TW" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"]);
-      expect(i18n.getLocale()).toBe("zh-CN");
-    });
-
-    it("falls back to default locale when no match", () => {
-      vi.stubGlobal("navigator", { language: "fr-FR" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"]);
-      expect(i18n.getLocale()).toBe("en-US");
-    });
-
-    it("does NOT read localStorage (项目规则: 不持久化)", () => {
-      localStorage.setItem("locale", "zh-CN");
-      vi.stubGlobal("navigator", { language: "en-US" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"]);
-      // navigator en-US 胜出,localStorage zh-CN 被忽略
-      expect(i18n.getLocale()).toBe("en-US");
-    });
-
-    it("updates document.documentElement.lang", () => {
-      vi.stubGlobal("navigator", { language: "zh-CN" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"]);
-      expect(document.documentElement.lang).toBe("zh-CN");
-    });
-
-    // ---- init() with override (URL ?lan=xx) ----
-    it("uses override if provided, ignoring navigator.language", () => {
-      vi.stubGlobal("navigator", { language: "fr-FR" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"], "zh-CN");
-      expect(i18n.getLocale()).toBe("zh-CN");
-    });
-
-    it("override takes priority over navigator.language (URL > region)", () => {
-      vi.stubGlobal("navigator", { language: "fr-FR" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"], "en-US");
-      expect(i18n.getLocale()).toBe("en-US");
-    });
-
-    it("override does NOT persist to localStorage (项目规则: 不持久化)", () => {
-      vi.stubGlobal("navigator", { language: "fr-FR" });
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.init(["zh-CN", "en-US"], "zh-CN");
-      expect(localStorage.getItem("locale")).toBeNull();
-    });
+  it("has matching complete Chinese and English keys", () =>
+    expect(keys(zhCN)).toEqual(keys(enUS)));
+  it("interpolates parameters, merges registrations, and preserves unknown keys", () => {
+    const locale = create();
+    locale.setLocale("en-US");
+    expect(locale.t("ui.navigate", { name: "Earth" })).toBe("Go to Earth");
+    locale.registerLocale("en-US", { test: "{value}" });
+    expect(locale.t("test", { value: 14 })).toBe("14");
+    expect(locale.t("ui.volume")).toBe("Volume");
+    expect(locale.t("missing")).toBe("missing");
   });
-
-  // ---- getAvailableLocales ----
-  describe("getAvailableLocales", () => {
-    it("lists all registered locales in registration order", () => {
-      i18n.registerLocale("zh-CN", {});
-      i18n.registerLocale("en-US", {});
-      i18n.registerLocale("ja-JP", {});
-      expect(i18n.getAvailableLocales()).toEqual(["zh-CN", "en-US", "ja-JP"]);
-    });
-
-    it("returns empty array when nothing registered", () => {
-      expect(i18n.getAvailableLocales()).toEqual([]);
-    });
+  it("ignores unknown selections and removes subscriptions", () => {
+    const locale = create();
+    const listener = vi.fn();
+    const unsubscribe = locale.subscribe(listener);
+    locale.setLocale("not-a-language");
+    expect(listener).not.toHaveBeenCalled();
+    locale.setLocale("zh-CN");
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+    locale.setLocale("en-US");
+    expect(listener).toHaveBeenCalledTimes(1);
   });
-
-  // ---- hasLocale ----
-  describe("hasLocale", () => {
-    it("returns true for registered locales", () => {
-      i18n.registerLocale("zh-CN", {});
-      expect(i18n.hasLocale("zh-CN")).toBe(true);
+  it("works when preference storage is denied", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("denied");
     });
-
-    it("returns false for unregistered locales", () => {
-      i18n.registerLocale("zh-CN", {});
-      expect(i18n.hasLocale("fr-FR")).toBe(false);
-    });
+    const locale = create();
+    expect(() => locale.setLocale("zh-CN")).not.toThrow();
+    expect(locale.getLocale()).toBe("zh-CN");
   });
 });
